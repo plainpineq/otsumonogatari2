@@ -8,7 +8,7 @@ user_data/
 # Security & Local Config
 api_keys_config.json
 users.db
-llm_models_config.json
+gemini_api_test.py
 .vscode/
 
 # Python

@@ -1,0 +1,27 @@
+{
+  "gemini": {
+    "enabled": true,
+    "models": [
+      "gemini-flash-latest",
+      "gemini-flash-lite-latest",
+      "gemini-3-flash-preview",
+      "gemini-2.5-flash"
+    ]
+  },
+  "chatgpt": {
+    "enabled": false,
+    "models": [
+      "gpt-5",
+      "gpt-5-mini",
+      "gpt-5-nano"
+    ]
+  },
+  "huggingface": {
+    "enabled": true,
+    "models": []
+  },
+  "other": {
+    "enabled": true,
+    "models": []
+  }
+}
