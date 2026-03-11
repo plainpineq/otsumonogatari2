@@ -1,0 +1,345 @@
+doc_type 別：LLMに生成させる構成要素
+
+#主構成要素（必須）
+
+1 小説（novel）
+	① シーン案（Scene Candidates）
+		導入
+		日常
+		事件
+		葛藤
+		転機
+		クライマックス
+		結末
+	② キャラクター案
+	   主人公（性格・欠落・欲求）
+		ヒロイン
+		相棒
+		対立者
+		補助キャラ
+	③ 関係性案
+		主人公 × ヒロインの関係
+		主人公 × 対立者の因縁
+		過去の出来事
+	④ 伏線案
+		冒頭に出す違和感
+		中盤で意味が変わる描写
+		結末で回収される要素
+	⑤ 世界観・ルール案
+		世界の制約
+		禁忌
+		特殊ルール（時間・記憶・存在）
+
+2 脚本（script）
+	① シーン構成案
+		シーン番号
+		場所
+		登場人物
+		目的（シーンで何が変わるか）
+	②  ビート案（短い展開単位）
+		感情の変化点
+		会話の転換点
+		アクションのきっかけ
+	③ キャラクター機能案
+		機能的役割（障害役・説明役・加速役）
+		感情曲線
+	④ 台詞トーン案
+		現実的/詩的/コメディ寄り/抑制的
+
+3 論文（paper）
+	① 構成セクション案
+		問題提起
+		先行研究整理
+		仮説
+		手法
+	① 実験／分析
+		考察
+		結論
+	③ 論点案
+		主張候補
+		反論候補
+		限界点
+	④ 根拠案
+		データ種別
+		引用方針
+		仮想実験設計
+	⑤ 研究ストーリー案
+		なぜこの研究か
+		何が新しいか
+		どこに価値があるか
+
+4. 記事（article）
+	① 見出し案
+		フック型
+		問題提起型
+		結論先出し型
+	② 構成パターン案
+		PREP型
+		ストーリー型
+		FAQ型
+		比較型
+	③ 読者課題案
+		読者が困っていること
+		誤解していること
+		知りたいが整理できていないこと
+	④ 具体例・エピソード案
+		体験談
+		ケーススタディ
+		比喩・例え話
+
+4. 随筆（essay）
+	① モチーフ案
+		日常の出来事
+		記憶
+		風景
+		感情の揺らぎ
+	② 視点案
+		過去の自分
+		今の自分
+		他者視点
+	③ 展開案
+		出来事 → 気づき
+		違和感 → 内省
+		反省 → 余韻
+	④ 表現トーン案
+		叙情的
+		皮肉
+		淡々
+		ユーモア
+		
+#共通構成要素（全 doc_type 共通）
+	作品の「核となる問い」
+	読後に残したい感情
+	禁止事項（やらないこと）
+	強調したい価値観
+	読者との距離感
+
+上記の構成要素カテゴリ・メタ定義をJSONで記述すると以下になる。
+{
+  "version": "1.0",
+  "description": "LLMが生成し、最適化・選別される作品構成要素のメタ定義",
+
+  "common_categories": [
+    {
+      "id": "theme",
+      "label": "テーマ・問い",
+      "multiple": true,
+      "description": "作品全体を貫く問いや主題",
+      "llm_generate": true,
+      "optimize": true
+    },
+    {
+      "id": "value",
+      "label": "価値観",
+      "multiple": true,
+      "description": "肯定・否定される価値",
+      "llm_generate": true,
+      "optimize": true
+    },
+    {
+      "id": "constraint",
+      "label": "制約条件",
+      "multiple": true,
+      "description": "表現・設定上の制約",
+      "llm_generate": false,
+      "optimize": false
+    }
+  ],
+
+  "doc_types": {
+    "novel": {
+      "label": "小説",
+      "categories": [
+        {
+          "id": "scene",
+          "label": "シーン案",
+          "multiple": true,
+          "instance_structure": {
+            "phase": {
+              "type": "enum",
+              "values": [
+                "導入",
+                "日常",
+                "事件",
+                "葛藤",
+                "転機",
+                "クライマックス",
+                "結末"
+              ]
+            },
+            "summary": {
+              "type": "text"
+            },
+            "emotion_shift": {
+              "type": "text",
+              "description": "感情の変化"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        },
+        {
+          "id": "character",
+          "label": "キャラクター案",
+          "multiple": true,
+          "instance_structure": {
+            "role": {
+              "type": "enum",
+              "values": [
+                "主人公",
+                "相棒",
+                "対立者",
+                "補助キャラ"
+              ]
+            },
+            "personality": {
+              "type": "text"
+            },
+            "desire": {
+              "type": "text"
+            },
+            "weakness": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        },
+        {
+          "id": "foreshadowing",
+          "label": "伏線案",
+          "multiple": true,
+          "instance_structure": {
+            "setup_scene": {
+              "type": "text"
+            },
+            "payoff_scene": {
+              "type": "text"
+            },
+            "description": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        }
+      ]
+    },
+
+    "script": {
+      "label": "脚本",
+      "categories": [
+        {
+          "id": "scene",
+          "label": "シーン",
+          "multiple": true,
+          "instance_structure": {
+            "location": {
+              "type": "text"
+            },
+            "purpose": {
+              "type": "text"
+            },
+            "conflict": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        },
+        {
+          "id": "beat",
+          "label": "ビート",
+          "multiple": true,
+          "instance_structure": {
+            "trigger": {
+              "type": "text"
+            },
+            "change": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        }
+      ]
+    },
+
+    "paper": {
+      "label": "論文",
+      "categories": [
+        {
+          "id": "section",
+          "label": "セクション案",
+          "multiple": true,
+          "instance_structure": {
+            "section_type": {
+              "type": "enum",
+              "values": [
+                "問題提起",
+                "関連研究",
+                "手法",
+                "結果",
+                "考察",
+                "結論"
+              ]
+            },
+            "key_point": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        }
+      ]
+    },
+
+    "article": {
+      "label": "記事",
+      "categories": [
+        {
+          "id": "headline",
+          "label": "見出し案",
+          "multiple": true,
+          "instance_structure": {
+            "style": {
+              "type": "enum",
+              "values": [
+                "疑問形",
+                "結論先出し",
+                "数字入り",
+                "共感型"
+              ]
+            },
+            "text": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        }
+      ]
+    },
+
+    "essay": {
+      "label": "随筆",
+      "categories": [
+        {
+          "id": "motif",
+          "label": "モチーフ",
+          "multiple": true,
+          "instance_structure": {
+            "trigger": {
+              "type": "text"
+            },
+            "reflection": {
+              "type": "text"
+            }
+          },
+          "llm_generate": true,
+          "optimize": true
+        }
+      ]
+    }
+  }
+}

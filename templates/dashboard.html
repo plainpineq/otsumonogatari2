@@ -1,0 +1,649 @@
+{% extends "base.html" %}
+{% block content %}
+<div id="llm-models-config" data-config='{{ llm_models_config | tojson | safe }}'></div>
+<div id="api-keys-config" data-config='{{ api_keys_config | tojson | safe }}'></div>
+
+<h2 class="mb-4">ダッシュボード</h2>
+
+<div class="row mb-2">
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 h-100">
+            <h3 class="card-title">作業データをアップロードする</h3>
+            <form id="work-data-upload-form" action="/upload" method="post" enctype="multipart/form-data">
+                <input type="file" id="work-data-file-input" name="file" style="display: none;" required>
+                <button type="button" class="btn btn-primary w-100" onclick="document.getElementById('work-data-file-input').click();">ファイルを選択してアップロード</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 h-100">
+            <h3 class="card-title">新規作成</h3>
+            <form action="/document/create" method="post">
+                <div class="mb-3">
+                    <input name="title" class="form-control" placeholder="タイトル" required>
+                </div>
+                <div class="mb-3">
+                    <select name="doc_type" class="form-select">
+                        {% for doc_type in doc_types %}
+                        <option value="{{ doc_type }}">{{ doc_type }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">新規作成</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card p-4 h-100">
+            <h3 class="card-title">構成要素の提案設定</h3>
+            <form action="/update_suggestion_count" method="post">
+                <div class="mb-3">
+                    <label for="suggestion_count" class="form-label">提案個数（上限5）</label>
+                    <input type="number" class="form-control" id="suggestion_count" name="suggestion_count" min="1" max="5" value="{{ user_config.suggestion_count if user_config and user_config.suggestion_count else 3 }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">設定を保存</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Macro to render LLM configuration fields to avoid repetition #}
+{% macro render_llm_config(role, role_label, config) %}
+<div class="mb-3">
+    <label for="llm_provider_{{ role }}" class="form-label">LLM プロバイダー</label>
+    <select class="form-select llm-provider-select" id="llm_provider_{{ role }}" name="llm_servers[{{ role }}][provider]" data-role="{{ role }}">
+        <option value="gemini" {% if config.provider == 'gemini' %}selected{% endif %} {% if llm_models_config.gemini and not llm_models_config.gemini.enabled %}disabled{% endif %}>Gemini</option>
+        <option value="huggingface" {% if config.provider == 'huggingface' %}selected{% endif %} {% if llm_models_config.huggingface and not llm_models_config.huggingface.enabled %}disabled{% endif %}>Hugging Face</option>
+        <option value="chatgpt" {% if config.provider == 'chatgpt' %}selected{% endif %} {% if llm_models_config.chatgpt and not llm_models_config.chatgpt.enabled %}disabled{% endif %}>ChatGPT</option>
+        <option value="other" {% if config.provider == 'other' %}selected{% endif %} {% if llm_models_config.other and not llm_models_config.other.enabled %}disabled{% endif %}>その他 (OpenAI互換)</option>
+    </select>
+</div>
+
+<div class="mb-3 llm-provider-fields" data-provider="huggingface">
+    <label for="llm_huggingface_api_key_{{ role }}" class="form-label">Hugging Face API Key</label>
+    <input type="password" class="form-control" id="llm_huggingface_api_key_{{ role }}" name="llm_servers[{{ role }}][huggingface_api_key]" value="{{ config.huggingface_api_key }}" placeholder="Your Hugging Face API key (optional)" autocomplete="off">
+</div>
+<div class="mb-3 llm-provider-fields" data-provider="huggingface">
+    <label for="llm_huggingface_model_base_endpoint_{{ role }}" class="form-label">Hugging Face Base Endpoint</label>
+    <input type="text" class="form-control" id="llm_huggingface_model_base_endpoint_{{ role }}" name="llm_servers[{{ role }}][huggingface_model_base_endpoint]" value="{{ config.huggingface_model_base_endpoint }}" placeholder="e.g., https://api-inference.huggingface.co/models/">
+</div>
+<div class="mb-3 llm-provider-fields" data-provider="huggingface">
+    <label for="llm_huggingface_model_id_{{ role }}" class="form-label">Hugging Face Model ID</label>
+    <input type="text" class="form-control" id="llm_huggingface_model_id_{{ role }}" name="llm_servers[{{ role }}][huggingface_model_id]" value="{{ config.huggingface_model_id }}" placeholder="e.g., mistralai/Mistral-7B-Instruct-v0.2">
+</div>
+
+<div class="mb-3">
+    <label for="llm_api_key_{{ role }}" class="form-label">
+        API キー 
+        <a href="/help/gemini-api" target="_blank" class="text-info ms-1" title="Gemini APIキーの取得方法">
+            <i class="bi bi-asterisk" style="font-size: 0.75rem; vertical-align: super;"></i>
+        </a>
+    </label>
+    <div class="llm-preset-api-key-container mb-2" id="llm_preset_api_key_container_{{ role }}" style="display: none;">
+        <select class="form-select llm-preset-api-key-select" id="llm_preset_api_key_select_{{ role }}" data-role="{{ role }}">
+            <!-- Populated by JS -->
+        </select>
+    </div>
+    <input type="password" class="form-control llm-api-key-input" id="llm_api_key_{{ role }}" name="llm_servers[{{ role }}][api_key]" value="{{ config.api_key }}" placeholder="sk-..." autocomplete="off">
+</div>
+
+<div class="mb-3">
+    <label for="llm_model_name_{{ role }}" class="form-label">モデル名</label>
+    <div class="llm-model-name-container" id="llm_model_name_container_{{ role }}">
+        <input type="text" class="form-control llm-model-name-input" id="llm_model_name_input_{{ role }}" name="llm_servers[{{ role }}][model_name]" value="{{ config.model_name }}" placeholder="例: gemini-pro, gpt-4o-mini">
+        <select class="form-select llm-model-name-select" id="llm_model_name_select_{{ role }}" name="llm_servers[{{ role }}][model_name]" style="display: none;"></select>
+    </div>
+</div>
+
+<div class="mb-3 llm-base-url-group" id="llm_base_url_group_{{ role }}">
+    <label for="llm_base_url_{{ role }}" class="form-label">ベース URL (OpenAI互換API用)</label>
+    <input type="text" class="form-control" id="llm_base_url_{{ role }}" name="llm_servers[{{ role }}][base_url]" value="{{ config.base_url }}" placeholder="例: http://localhost:11434/v1">
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label for="llm_temperature_{{ role }}" class="form-label">Temperature</label>
+            <input type="number" step="0.1" min="0" max="2" class="form-control" id="llm_temperature_{{ role }}" name="llm_servers[{{ role }}][temperature]" value="{{ config.temperature | default(0.7) }}">
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label for="llm_max_tokens_{{ role }}" class="form-label">Max Tokens</label>
+            <input type="number" step="1" min="1" class="form-control" id="llm_max_tokens_{{ role }}" name="llm_servers[{{ role }}][max_tokens]" value="{{ config.max_tokens | default(2048) }}">
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+
+<form action="/save_servers_config" method="post">
+<div class="row mb-3">
+    <div class="col-12 text-end">
+        <button type="button" id="upload-settings-btn" class="btn btn-outline-secondary me-2">設定をアップロード</button>
+        <button type="button" id="download-settings-btn" class="btn btn-outline-secondary me-2">設定をダウンロード</button>
+        <button type="submit" class="btn btn-primary">全サーバー設定を保存</button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card p-4">
+            <h3 class="card-title">LLMサーバー</h3>
+            <ul class="nav nav-tabs" id="llmServerTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="generation-tab" data-bs-toggle="tab" data-bs-target="#generation" type="button" role="tab" aria-controls="generation" aria-selected="true">構成要素生成</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab" aria-controls="evaluation" aria-selected="false">構成要素評価</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="drafting-tab" data-bs-toggle="tab" data-bs-target="#drafting" type="button" role="tab" aria-controls="drafting" aria-selected="false">下書き生成</button>
+                </li>
+            </ul>
+            <div class="tab-content pt-3">
+                <div class="tab-pane fade show active" id="generation" role="tabpanel" aria-labelledby="generation-tab">
+                    {{ render_llm_config('generation', '構成要素生成', user_config.llm_servers.generation) }}
+                </div>
+                <div class="tab-pane fade" id="evaluation" role="tabpanel" aria-labelledby="evaluation-tab">
+                    {{ render_llm_config('evaluation', '構成要素評価', user_config.llm_servers.evaluation) }}
+                </div>
+                <div class="tab-pane fade" id="drafting" role="tabpanel" aria-labelledby="drafting-tab">
+                    {{ render_llm_config('drafting', '下書き生成', user_config.llm_servers.drafting) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-4">
+        <div class="card p-4 h-100">
+            <h3 class="card-title">解析サーバー</h3>
+            <p class="text-muted small">Fixstars Amplify 社 Annealing Engine</p>
+            {% if api_keys_config.api_keys_enabled and api_keys_config.analysis_servers %}
+            <div class="mb-3">
+                <label for="quantum_server_api_key_select" class="form-label">プリセット API キー</label>
+                <select class="form-select" id="quantum_server_api_key_select">
+                    <option value="">-- 手入力 --</option>
+                    {% for server in api_keys_config.analysis_servers %}
+                    <option value="{{ server.api_key }}">{{ server.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="mb-3">
+                <label for="quantum_server_api_key" class="form-label">
+                    API キー
+                    <a href="/help/amplify-api" target="_blank" class="text-info ms-1" title="Amplify APIキーの取得方法">
+                        <i class="bi bi-asterisk" style="font-size: 0.75rem; vertical-align: super;"></i>
+                    </a>
+                </label>
+                <input type="password" class="form-control" id="quantum_server_api_key" name="quantum_server[api_key]" value="{{ user_config.quantum_server.api_key }}" placeholder="解析サーバーのAPIキー" autocomplete="off">
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+{# Separate forms for file uploads to avoid nesting #}
+<form id="settings-load-form-new" action="/load_server_settings" method="post" enctype="multipart/form-data" style="display: none;">
+    <input type="file" id="settings-load-input-new" name="file" accept=".json">
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 画面上部にメッセージを表示するヘルパー関数
+    function showJsFlash(message, category) {
+        const container = document.querySelector('main.container');
+        const alertDiv = document.createElement('div');
+        const colorClass = category === 'success' ? 'primary' : (category === 'error' ? 'danger' : category);
+        alertDiv.className = `alert alert-${colorClass} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.insertBefore(alertDiv, container.firstChild);
+    }
+
+    function toggleLlmFields(role) {
+        const providerSelect = document.getElementById(`llm_provider_${role}`);
+        const modelNameContainer = document.getElementById(`llm_model_name_container_${role}`); // Updated ID
+        const modelNameInput = document.getElementById(`llm_model_name_input_${role}`); // New ID
+        const modelNameSelect = document.getElementById(`llm_model_name_select_${role}`); // New ID
+        const baseUrlGroup = document.getElementById(`llm_base_url_group_${role}`);
+        const llmApiKeyField = document.getElementById(`llm_api_key_${role}`);
+        const presetContainer = document.getElementById(`llm_preset_api_key_container_${role}`);
+        const presetSelect = document.getElementById(`llm_preset_api_key_select_${role}`);
+
+        const huggingfaceApiKeyField = document.getElementById(`llm_huggingface_api_key_${role}`);
+        const huggingfaceModelBaseEndpointField = document.getElementById(`llm_huggingface_model_base_endpoint_${role}`);
+        const huggingfaceModelIdField = document.getElementById(`llm_huggingface_model_id_${role}`);
+        
+        if (!providerSelect) return;
+
+        const selectedProvider = providerSelect.value;
+        const llmModelsConfig = JSON.parse(document.getElementById('llm-models-config').dataset.config);
+        const apiKeysConfig = JSON.parse(document.getElementById('api-keys-config').dataset.config);
+        const providerConfig = llmModelsConfig[selectedProvider];
+        const availableModels = providerConfig ? providerConfig.models : null;
+
+        // Hide all fields by default and disable them
+        modelNameInput.style.display = 'none';
+        modelNameInput.disabled = true; 
+        modelNameSelect.style.display = 'none';
+        modelNameSelect.disabled = true;
+        baseUrlGroup.style.display = 'none';
+        llmApiKeyField.parentElement.style.display = 'none';
+        presetContainer.style.display = 'none';
+        
+        // Hugging Face specific fields
+        const huggingfaceFields = document.querySelectorAll(`.llm-provider-fields[data-provider="huggingface"]`);
+        huggingfaceFields.forEach(field => field.style.display = 'none');
+
+        // Check for demo mode pre-configured keys
+        let demoConfig = null;
+        if (apiKeysConfig.api_keys_enabled && apiKeysConfig.llm_providers) {
+            demoConfig = apiKeysConfig.llm_providers.find(p => p.provider === selectedProvider);
+        }
+
+        if (demoConfig) {
+            if (demoConfig.keys && demoConfig.keys.length > 0) {
+                // Multiple keys: Show dropdown
+                presetSelect.innerHTML = '<option value="">-- プリセットを選択 --</option>';
+                demoConfig.keys.forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k.api_key;
+                    opt.textContent = k.label;
+                    presetSelect.appendChild(opt);
+                });
+                presetContainer.style.display = 'block';
+                llmApiKeyField.readOnly = false; // Allow override if needed, or keep readonly? 
+                // Let's keep it editable so user can see what's selected or put their own
+                llmApiKeyField.classList.remove('bg-light');
+            } else if (demoConfig.api_key) {
+                // Single key: Auto-fill and disable
+                llmApiKeyField.value = demoConfig.api_key;
+                llmApiKeyField.readOnly = true;
+                llmApiKeyField.classList.add('bg-light');
+                llmApiKeyField.title = "デモ用APIキーが自動設定されています";
+            }
+        } else {
+            llmApiKeyField.readOnly = false;
+            llmApiKeyField.classList.remove('bg-light');
+            llmApiKeyField.title = "";
+        }
+
+        // Show fields based on selected provider
+        if (selectedProvider === 'other') {
+            modelNameInput.style.display = 'block'; // Text input for 'other'
+            modelNameInput.disabled = false; // Enable text input
+            baseUrlGroup.style.display = 'block';
+            llmApiKeyField.parentElement.style.display = 'block'; // General API key might be used for 'other'
+        } else if (selectedProvider === 'huggingface') {
+            huggingfaceFields.forEach(field => field.style.display = 'block');
+        } else if (availableModels && availableModels.length > 0) {
+            // If models are defined in config, show select dropdown
+            modelNameSelect.innerHTML = ''; // Clear previous options
+            const currentModelName = modelNameInput.value; // Preserve current value from hidden input
+
+            let foundCurrentModel = false;
+            availableModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                if (model === currentModelName) {
+                    option.selected = true;
+                    foundCurrentModel = true;
+                }
+                modelNameSelect.appendChild(option);
+            });
+
+            // If the current model name is not in the list, add it as a selected option
+            if (currentModelName && !foundCurrentModel) {
+                const option = document.createElement('option');
+                option.value = currentModelName;
+                option.textContent = currentModelName;
+                option.selected = true;
+                modelNameSelect.appendChild(option);
+            } else if (!currentModelName && availableModels.length > 0) {
+                // If no current model and models are available, select the first one
+                modelNameSelect.selectedIndex = 0;
+            }
+
+            modelNameSelect.style.display = 'block';
+            modelNameSelect.disabled = false; // Enable select dropdown
+            llmApiKeyField.parentElement.style.display = 'block'; // General API key used for Gemini/ChatGPT
+        } else {
+            // If no specific models defined or other providers, show text input
+            modelNameInput.style.display = 'block';
+            modelNameInput.disabled = false; // Enable text input
+            llmApiKeyField.parentElement.style.display = 'block'; // General API key used for Gemini/ChatGPT (and potentially others)
+        }
+    }
+
+    const roles = ['generation', 'evaluation', 'drafting'];
+    roles.forEach(role => {
+        const providerSelect = document.getElementById(`llm_provider_${role}`);
+        if (providerSelect) {
+            providerSelect.addEventListener('change', () => toggleLlmFields(role));
+            // Initial call to set correct state
+            toggleLlmFields(role);
+        }
+
+        const presetSelect = document.getElementById(`llm_preset_api_key_select_${role}`);
+        const llmApiKeyField = document.getElementById(`llm_api_key_${role}`);
+        if (presetSelect && llmApiKeyField) {
+            presetSelect.addEventListener('change', function() {
+                if (this.value) {
+                    llmApiKeyField.value = this.value;
+                    triggerAutoSave(); // 自動保存をトリガー
+                }
+            });
+        }
+    });
+
+    // --- 解析サーバーのプリセット選択 ---
+    const quantumServerApiKeySelect = document.getElementById('quantum_server_api_key_select');
+    const quantumServerApiKeyInput = document.getElementById('quantum_server_api_key');
+    if (quantumServerApiKeySelect && quantumServerApiKeyInput) {
+        quantumServerApiKeySelect.addEventListener('change', function() {
+            if (this.value) {
+                quantumServerApiKeyInput.value = this.value;
+                triggerAutoSave(); // 自動保存をトリガー
+            }
+        });
+    }
+
+    // --- 作業データの自動アップロード機能 ---
+    const workDataUploadForm = document.getElementById('work-data-upload-form');
+    const workDataFileInput = document.getElementById('work-data-file-input');
+    if (workDataFileInput) {
+        workDataFileInput.addEventListener('change', function() {
+            if (this.files && this.files.length > 0) {
+                workDataUploadForm.submit();
+            }
+        });
+    }
+
+    // --- 設定の自動保存機能 ---
+    let autoSaveTimeout;
+    async function autoSaveSettings() {
+        const settings = {
+            llm_servers: {},
+            quantum_server: {
+                api_key: document.getElementById('quantum_server_api_key').value
+            }
+        };
+
+        roles.forEach(role => {
+            const providerSelect = document.getElementById(`llm_provider_${role}`);
+            const llmApiKeyField = document.getElementById(`llm_api_key_${role}`);
+            const llmBaseUrlField = document.getElementById(`llm_base_url_${role}`);
+            const llmTemperatureField = document.getElementById(`llm_temperature_${role}`);
+            const llmMaxTokensField = document.getElementById(`llm_max_tokens_${role}`);
+            const huggingfaceApiKeyField = document.getElementById(`llm_huggingface_api_key_${role}`);
+            const huggingfaceModelBaseEndpointField = document.getElementById(`llm_huggingface_model_base_endpoint_${role}`);
+            const huggingfaceModelIdField = document.getElementById(`llm_huggingface_model_id_${role}`);
+
+            let modelNameValue = '';
+            const modelNameInput = document.getElementById(`llm_model_name_input_${role}`);
+            const modelNameSelect = document.getElementById(`llm_model_name_select_${role}`);
+            if (modelNameSelect && !modelNameSelect.disabled) {
+                modelNameValue = modelNameSelect.value;
+            } else if (modelNameInput && !modelNameInput.disabled) {
+                modelNameValue = modelNameInput.value;
+            }
+
+            settings.llm_servers[role] = {
+                provider: providerSelect ? providerSelect.value : '',
+                api_key: llmApiKeyField ? llmApiKeyField.value : '',
+                model_name: modelNameValue,
+                base_url: llmBaseUrlField ? llmBaseUrlField.value : '',
+                temperature: llmTemperatureField ? llmTemperatureField.value : '0.7',
+                max_tokens: llmMaxTokensField ? llmMaxTokensField.value : '2048',
+                huggingface_api_key: huggingfaceApiKeyField ? huggingfaceApiKeyField.value : '',
+                huggingface_model_base_endpoint: huggingfaceModelBaseEndpointField ? huggingfaceModelBaseEndpointField.value : '',
+                huggingface_model_id: huggingfaceModelIdField ? huggingfaceModelIdField.value : '',
+            };
+        });
+
+        try {
+            const response = await fetch('/api/save_servers_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            if (response.ok) {
+                console.log('Settings auto-saved successfully.');
+            }
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+        }
+    }
+
+    function triggerAutoSave() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveSettings, 1000); // 1秒間のデバウンス
+    }
+
+    // 全ての入力フィールドにイベントリスナーを追加
+    const llmInputs = document.querySelectorAll('input[name^="llm_servers"], select[name^="llm_servers"], #quantum_server_api_key');
+    llmInputs.forEach(input => {
+        input.addEventListener('change', triggerAutoSave);
+        if (input.tagName === 'INPUT') {
+            input.addEventListener('input', triggerAutoSave);
+        }
+    });
+
+    // --- 設定のダウンロード/ロード機能 ---
+    const downloadSettingsBtn = document.getElementById('download-settings-btn');
+    const uploadSettingsBtn = document.getElementById('upload-settings-btn');
+    const settingsLoadInput = document.getElementById('settings-load-input-new');
+
+    // ダウンロード機能
+    downloadSettingsBtn.addEventListener('click', async () => {
+        console.log('Download settings button clicked.');
+        const settings = {
+            llm_servers: {},
+            quantum_server: {
+                api_key: document.getElementById('quantum_server_api_key').value
+            }
+        };
+
+        roles.forEach(role => {
+            const providerSelect = document.getElementById(`llm_provider_${role}`);
+            const llmApiKeyField = document.getElementById(`llm_api_key_${role}`);
+            const llmBaseUrlField = document.getElementById(`llm_base_url_${role}`);
+            const llmTemperatureField = document.getElementById(`llm_temperature_${role}`);
+            const llmMaxTokensField = document.getElementById(`llm_max_tokens_${role}`);
+            const huggingfaceApiKeyField = document.getElementById(`llm_huggingface_api_key_${role}`);
+            const huggingfaceModelBaseEndpointField = document.getElementById(`llm_huggingface_model_base_endpoint_${role}`);
+            const huggingfaceModelIdField = document.getElementById(`llm_huggingface_model_id_${role}`);
+
+            let modelNameValue = '';
+            const modelNameInput = document.getElementById(`llm_model_name_input_${role}`);
+            const modelNameSelect = document.getElementById(`llm_model_name_select_${role}`);
+            if (modelNameSelect && !modelNameSelect.disabled) {
+                modelNameValue = modelNameSelect.value;
+            } else if (modelNameInput && !modelNameInput.disabled) {
+                modelNameValue = modelNameInput.value;
+            }
+
+            settings.llm_servers[role] = {
+                provider: providerSelect ? providerSelect.value : '',
+                api_key: llmApiKeyField ? llmApiKeyField.value : '',
+                model_name: modelNameValue,
+                base_url: llmBaseUrlField ? llmBaseUrlField.value : '',
+                temperature: llmTemperatureField ? llmTemperatureField.value : '0.7',
+                max_tokens: llmMaxTokensField ? llmMaxTokensField.value : '2048',
+                huggingface_api_key: huggingfaceApiKeyField ? huggingfaceApiKeyField.value : '',
+                huggingface_model_base_endpoint: huggingfaceModelBaseEndpointField ? huggingfaceModelBaseEndpointField.value : '',
+                huggingface_model_id: huggingfaceModelIdField ? huggingfaceModelIdField.value : '',
+            };
+        });
+
+        try {
+            console.log('Sending fetch request to /save_server_settings_from_ui');
+            const response = await fetch('/save_server_settings_from_ui', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            console.log('Received response:', response);
+
+            if (response.ok) {
+                console.log('Response is OK. Attempting to get blob.');
+                const blob = await response.blob();
+                console.log('Blob received. Size:', blob.size);
+
+                // 保存先を選択するダイアログを表示（対応ブラウザのみ）
+                if ('showSaveFilePicker' in window) {
+                    console.log('Browser supports showSaveFilePicker.');
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: 'server_settings.json',
+                            types: [{
+                                description: 'JSONファイル',
+                                accept: {'application/json': ['.json']},
+                            }],
+                        });
+                        console.log('showSaveFilePicker returned handle.');
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        showJsFlash('設定ファイルを保存しました。', 'success');
+                        return; // 正常終了
+                    } catch (err) {
+                        if (err.name === 'AbortError') {
+                            console.log('showSaveFilePicker was cancelled by user.');
+                            return; // キャンセル時は何もしない
+                        }
+                        console.error('showSaveFilePicker failed, falling back to traditional download:', err);
+                        // エラー時や未対応ブラウザ時は従来のダウンロード方式へフォールバック
+                    }
+                }
+
+                console.log('Attempting traditional download method.');
+                // 従来のダウンロード方式（フォールバック）
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'server_settings.json'; 
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showJsFlash('設定ファイルをダウンロードしました。', 'success');
+            } else {
+                console.error('Response not OK:', response.status, response.statusText);
+                const errorData = await response.json(); // エラー時はJSONを期待
+                alert(`設定のダウンロードに失敗しました: ${errorData.message}`);
+                showJsFlash(`設定のダウンロードに失敗しました: ${errorData.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('Download error in catch block:', error);
+            alert('設定のダウンロード中にエラーが発生しました。');
+            showJsFlash(`設定のダウンロード中にエラーが発生しました: ${error.message}`, 'error');
+        }
+    });
+
+    // アップロードボタンクリックでファイル選択ダイアログを開く
+    uploadSettingsBtn.addEventListener('click', () => {
+        settingsLoadInput.click();
+    });
+
+    // ファイルが選択されたら自動的にアップロード
+    settingsLoadInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+            document.getElementById('settings-load-form-new').submit();
+        }
+    });
+});
+</script>
+
+<div class="card p-4 mb-4">
+    <h3 class="card-title">作品一覧</h3>
+    {% if documents %}
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for d in documents %}
+            <div class="col">
+                <div class="card h-100 dashboard-card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <div id="title-display-{{ d.id }}">
+                                <a href="/document/{{ d.id }}" class="text-decoration-none text-white">{{ d.title }}</a>
+                            </div>
+                            <div id="title-edit-{{ d.id }}" style="display: none;">
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control" id="input-{{ d.id }}" value="{{ d.title }}">
+                                    <button class="btn btn-success" type="button" onclick="submitRename('{{ d.id }}')">保存</button>
+                                    <button class="btn btn-secondary" type="button" onclick="cancelRename('{{ d.id }}')">×</button>
+                                </div>
+                            </div>
+                        </h5>
+                        <p class="card-text"><small class="text-muted">{{ d.doc_type }}</small></p>
+                        
+                        <div class="mt-3 d-flex justify-content-between align-items-center">
+                            <div>
+                                <form action="/document/{{ d.id }}/download" method="GET" style="display:inline-block;">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="ダウンロード">
+                                        <i class="bi bi-download"></i> DL
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-1" onclick="showRenameInput('{{ d.id }}')" title="名称変更">
+                                    名称変更
+                                </button>
+                            </div>
+                            <form action="/document/{{ d.id }}/delete" method="POST" onsubmit="return confirm('本当にこの作品を削除しますか？');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
+                                    削除
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <p>まだ作品がありません。</p>
+    {% endif %}
+</div>
+
+<script>
+function showRenameInput(docId) {
+    document.getElementById(`title-display-${docId}`).style.display = 'none';
+    document.getElementById(`title-edit-${docId}`).style.display = 'block';
+    document.getElementById(`input-${docId}`).focus();
+}
+
+function cancelRename(docId) {
+    document.getElementById(`title-display-${docId}`).style.display = 'block';
+    document.getElementById(`title-edit-${docId}`).style.display = 'none';
+}
+
+function submitRename(docId) {
+    const newTitle = document.getElementById(`input-${docId}`).value;
+    if (newTitle) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/document/${docId}/rename`;
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'title';
+        input.value = newTitle;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+{% endblock %}

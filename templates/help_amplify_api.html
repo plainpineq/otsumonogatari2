@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-5">
+    <div class="card shadow-lg border-0 bg-dark text-white">
+        <div class="card-header bg-primary text-white py-3">
+            <h2 class="h4 mb-0"><i class="bi bi-cpu me-2"></i>Fixstars Amplify APIキー取得ガイド</h2>
+        </div>
+        <div class="card-body p-4">
+            <p class="lead">Fixstars Amplify AE（アニーリングエンジン）のAPIキーを取得して、本システムの「組み合わせ最適化」機能を利用するための手順です。</p>
+            
+            <div class="alert alert-info border-0 shadow-sm">
+                <i class="bi bi-info-circle-fill me-2"></i> <strong>ヒント:</strong> Fixstars Amplifyは、個人・研究・非商用目的であれば無料で利用できるプランが提供されています。
+            </div>
+
+            <div class="mt-5">
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 1: Amplify Cloud に登録・ログイン</h3>
+                        <p>まず、Fixstars Amplify の公式サイトにアクセスし、アカウントを登録またはログインします。</p>
+                        <a href="https://amplify.fixstars.com/ja/login" target="_blank" class="btn btn-outline-info btn-sm">
+                            Amplify Cloud を開く <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/amplifyLogin.png" alt="Amplify Cloud ログイン画面" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 2: マイページからアクセストークンを表示</h3>
+                        <p>ログイン後、ダッシュボードやマイページにアクセスします。通常、サイドメニューやアカウント設定の中に <strong>「アクセストークン」</strong> または <strong>「APIトークン」</strong> という項目があります。</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/amplifyToken.png" alt="Amplify Cloud アクセストークン画面の場所" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 3: トークンをコピー</h3>
+                        <p>「アクセストークン」の「Fixters Amplify AE」を開いて、トークンに表示されている文字列をコピーします。</p>
+                        <p>※トークンが表示されていない場合は「新規作成」ボタンから作成してください。</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/amplifyTokenAE.png" alt="Amplify Cloud トークンのコピー操作" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 4: 本システムに貼り付け</h3>
+                        <p>本システムのダッシュボードに戻り、「解析サーバー」パネルの「API キー」欄にコピーしたトークンを貼り付けて <strong>「全サーバー設定を保存」</strong> をクリックすれば完了です！</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <button onclick="window.close();" class="btn btn-secondary px-5">このウィンドウを閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

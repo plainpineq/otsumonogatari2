@@ -1,0 +1,235 @@
+{
+  "SF": {
+    "targets": {
+      "シーン案::dramatic": 2,
+      "シーン案::causal": 4,
+      "シーン案::tension": 3,
+      "シーン案::emotion": 1,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 2,
+      "伏線案::foreshadowing": 3,
+      "伏線案::resolution": 4,
+      "伏線案::misdirection": 2,
+      "伏線案::connection": 3
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 2, "伏線案": 2 }
+  },
+
+  "恋愛": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 2,
+      "シーン案::tension": 2,
+      "シーン案::emotion": 4,
+      "キャラ案::agency": 2,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 4,
+      "キャラ案::growth": 3,
+      "伏線案::foreshadowing": 2,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 1,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 2, "キャラ案": 3, "伏線案": 1 }
+  },
+
+  "ミステリ": {
+    "targets": {
+      "シーン案::dramatic": 2,
+      "シーン案::causal": 4,
+      "シーン案::tension": 3,
+      "シーン案::emotion": 1,
+      "キャラ案::agency": 2,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 2,
+      "伏線案::foreshadowing": 4,
+      "伏線案::resolution": 4,
+      "伏線案::misdirection": 3,
+      "伏線案::connection": 3
+    },
+    "category_weights": { "シーン案": 2, "キャラ案": 1, "伏線案": 3 }
+  },
+
+  "バトル": {
+    "targets": {
+      "シーン案::dramatic": 4,
+      "シーン案::causal": 2,
+      "シーン案::tension": 4,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 4,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 3,
+      "伏線案::foreshadowing": 2,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 1,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 2, "伏線案": 1 }
+  },
+
+  "ファンタジー": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 3,
+      "シーン案::tension": 3,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 2,
+      "キャラ案::growth": 3,
+      "伏線案::foreshadowing": 3,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 2,
+      "伏線案::connection": 3
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 2, "伏線案": 2 }
+  },
+
+  "ホラー": {
+    "targets": {
+      "シーン案::dramatic": 2,
+      "シーン案::causal": 1,
+      "シーン案::tension": 4,
+      "シーン案::emotion": 3,
+      "キャラ案::agency": 1,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 1,
+      "伏線案::foreshadowing": 3,
+      "伏線案::resolution": 2,
+      "伏線案::misdirection": 3,
+      "伏線案::connection": 1
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 1, "伏線案": 2 }
+  },
+
+  "ヒューマンドラマ": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 2,
+      "シーン案::tension": 2,
+      "シーン案::emotion": 4,
+      "キャラ案::agency": 2,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 4,
+      "キャラ案::growth": 4,
+      "伏線案::foreshadowing": 1,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 0,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 2, "キャラ案": 4, "伏線案": 0 }
+  },
+
+  "コメディ": {
+    "targets": {
+      "シーン案::dramatic": 2,
+      "シーン案::causal": 1,
+      "シーン案::tension": 2,
+      "シーン案::emotion": 3,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 2,
+      "キャラ案::relationship": 3,
+      "キャラ案::growth": 2,
+      "伏線案::foreshadowing": 1,
+      "伏線案::resolution": 2,
+      "伏線案::misdirection": 3,
+      "伏線案::connection": 1
+    },
+    "category_weights": { "シーン案": 2, "キャラ案": 3, "伏線案": 0 }
+  },
+
+  "サスペンス": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 3,
+      "シーン案::tension": 4,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 2,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 2,
+      "伏線案::foreshadowing": 3,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 3,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 1, "伏線案": 2 }
+  },
+
+  "歴史": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 4,
+      "シーン案::tension": 2,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 2,
+      "キャラ案::growth": 3,
+      "伏線案::foreshadowing": 2,
+      "伏線案::resolution": 4,
+      "伏線案::misdirection": 1,
+      "伏線案::connection": 3
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 2, "伏線案": 1 }
+  },
+
+  "青春": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 2,
+      "シーン案::tension": 2,
+      "シーン案::emotion": 4,
+      "キャラ案::agency": 2,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 4,
+      "キャラ案::growth": 4,
+      "伏線案::foreshadowing": 1,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 0,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 2, "キャラ案": 4, "伏線案": 0 }
+  },
+
+  "ディストピア": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 3,
+      "シーン案::tension": 4,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 3,
+      "キャラ案::conflict": 4,
+      "キャラ案::relationship": 1,
+      "キャラ案::growth": 2,
+      "伏線案::foreshadowing": 3,
+      "伏線案::resolution": 2,
+      "伏線案::misdirection": 2,
+      "伏線案::connection": 3
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 2, "伏線案": 2 }
+  },
+
+  "冒険": {
+    "targets": {
+      "シーン案::dramatic": 3,
+      "シーン案::causal": 3,
+      "シーン案::tension": 3,
+      "シーン案::emotion": 2,
+      "キャラ案::agency": 4,
+      "キャラ案::conflict": 3,
+      "キャラ案::relationship": 2,
+      "キャラ案::growth": 3,
+      "伏線案::foreshadowing": 2,
+      "伏線案::resolution": 3,
+      "伏線案::misdirection": 1,
+      "伏線案::connection": 2
+    },
+    "category_weights": { "シーン案": 3, "キャラ案": 3, "伏線案": 1 }
+  }
+}

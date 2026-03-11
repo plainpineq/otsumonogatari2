@@ -1,0 +1,139 @@
+# この設計で「できること」
+① common_categories を UI で自由編集
+「テーマ・問い」を削除
+「禁忌」「倫理観」を追加
+順序変更も可能
+	👉 Intent 編集UIと完全に一致
+
+② doc_type ごとに分類を追加・削除
+例：
+「伏線案」を追加
+「世界観ルール」を追加
+「キャラ案」を削除
+	👉 doc_type カスタマイズ
+
+③ 分類の中の構成要素も編集可能
+例：
+シーン案に「前日譚」を追加
+クライマックスを削除
+「禁断の選択」など独自要素を追加
+	👉 物語構造を自由に定義できる
+
+LLM・最適化との対応
+LLM生成
+LLMには
+	・doc_type
+	・category
+	・element
+を明示して生成させる
+例：
+「小説のシーン案『事件』の候補を5案生成せよ」
+
+# 最適化（量子アニーリング）
+・element インスタンスがノード
+・Intent や他要素との整合性がエッジ
+・category / element はラベル情報
+
+# 改訂版：構成要素カテゴリ・メタ定義（JSON）
+{
+  "version": "2.0",
+  "description": "構成要素カテゴリのメタ定義（完全ユーザ拡張型）",
+
+  "common_categories": {
+    "label": "共通構成要素",
+    "editable": true,
+    "categories": [
+      {
+        "id": "theme",
+        "label": "テーマ・問い",
+        "description": "作品全体を貫く問い",
+        "multiple": true
+      },
+      {
+        "id": "value",
+        "label": "価値観",
+        "description": "肯定・否定される価値",
+        "multiple": true
+      },
+      {
+        "id": "constraint",
+        "label": "制約条件",
+        "description": "表現上・設定上の制約",
+        "multiple": true
+      }
+    ]
+  },
+
+  "doc_types": {
+    "novel": {
+      "label": "小説",
+      "editable": true,
+      "categories": [
+        {
+          "id": "scene",
+          "label": "シーン案",
+          "editable": true,
+          "elements": [
+            {
+              "id": "intro",
+              "label": "導入",
+              "editable": true
+            },
+            {
+              "id": "daily_life",
+              "label": "日常",
+              "editable": true
+            },
+            {
+              "id": "incident",
+              "label": "事件",
+              "editable": true
+            },
+            {
+              "id": "conflict",
+              "label": "葛藤",
+              "editable": true
+            },
+            {
+              "id": "turning_point",
+              "label": "転機",
+              "editable": true
+            },
+            {
+              "id": "climax",
+              "label": "クライマックス",
+              "editable": true
+            },
+            {
+              "id": "ending",
+              "label": "結末",
+              "editable": true
+            }
+          ]
+        },
+        {
+          "id": "character",
+          "label": "キャラ案",
+          "editable": true,
+          "elements": [
+            {
+              "id": "protagonist",
+              "label": "主人公",
+              "editable": true
+            },
+            {
+              "id": "heroine",
+              "label": "ヒロイン",
+              "editable": true
+            },
+            {
+              "id": "antagonist",
+              "label": "対立者",
+              "editable": true
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

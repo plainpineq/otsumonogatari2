@@ -1,0 +1,27 @@
+{
+    "common_intents": [
+        ["theme", "テーマ・主張"],
+        ["audience", "想定読者"]
+    ],
+    "doc_type_intents": {
+        "小説": [
+            ["worldview", "世界観"]
+        ],
+        "脚本": [
+            ["setting", "舞台"],
+            ["duration", "想定尺"]
+        ],
+        "論文": [
+            ["field", "分野"],
+            ["research_question", "研究課題"],
+            ["method", "研究手法"]
+        ],
+        "記事": [
+            ["purpose", "目的"],
+            ["angle", "切り口"]
+        ],
+        "随筆": [
+            ["motif", "題材"]
+        ]
+    }
+}

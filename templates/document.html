@@ -1,0 +1,2801 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h2 mb-0" id="document-title-heading">{{ document.title }}</h1>
+        <span id="auto-save-status" class="badge bg-secondary ms-3" style="display: none; opacity: 0.7;">
+            <i class="bi bi-cloud-check me-1"></i> 変更を保存中...
+        </span>
+        <div id="document-data" data-doc='{{ document | tojson | default({}, true) }}'></div> {# documentデータをdata属性に埋め込む #}
+        <div id="semantic-label-schema" 
+             data-schema='{{ semantic_label_schema | tojson | default({}, true) }}'
+             data-ordered-keys='{{ semantic_label_schema.keys() | list | tojson | default([], true) }}'></div> {# schemaとキーの順序を埋め込む #}
+        <div>
+            <a href="/dashboard" class="btn btn-outline-secondary me-2">ダッシュボード</a>
+            <button type="button" id="download-document-btn" class="btn btn-info">ダウンロード</button>
+        </div>
+    </div>
+
+<ul class="nav nav-tabs" id="documentTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="intent-tab" data-bs-toggle="tab" data-bs-target="#intent" type="button" role="tab" aria-controls="intent" aria-selected="false">基本設定</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="composition-tab" data-bs-toggle="tab" data-bs-target="#composition" type="button" role="tab" aria-controls="composition" aria-selected="false">構成要素</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="suggestions-tab" data-bs-toggle="tab" data-bs-target="#suggestions" type="button" role="tab" aria-controls="suggestions" aria-selected="false">生成</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="evaluation-criteria-tab" data-bs-toggle="tab" data-bs-target="#evaluation-criteria" type="button" role="tab" aria-controls="evaluation-criteria" aria-selected="false">評価基準</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="evaluation-tab" data-bs-toggle="tab" data-bs-target="#evaluation" type="button" role="tab" aria-controls="evaluation" aria-selected="false">評価</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="drafting-tab" data-bs-toggle="tab" data-bs-target="#drafting" type="button" role="tab" aria-controls="drafting" aria-selected="false">下書き</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="manuscript-tab" data-bs-toggle="tab" data-bs-target="#manuscript" type="button" role="tab" aria-controls="manuscript" aria-selected="false">原稿</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="documentTabContent">
+    <div class="tab-pane fade" id="suggestions" role="tabpanel" aria-labelledby="suggestions-tab">
+        <!-- STEP 1: Title/Plot Proposal Generation -->
+        <div id="step1-proposals" class="card p-4 my-3">
+            <h3 class="h4">ステップ1: 基本項目の案を生成する</h3>
+            <p class="text-muted">「基本設定」タブの内容に基づいて、物語の核となる基本項目の案を複数生成します。</p>
+            <button id="generate-proposals-btn" class="btn btn-primary">生成開始</button>
+            <div id="proposals-loading" class="text-center my-3" style="display: none;">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">生成中...</p>
+            </div>
+            <div id="proposals-results" class="mt-4" style="display: none;">
+                <!-- JavaScriptで動的に生成されます -->
+            </div>
+        </div>
+
+        <!-- STEP 2: Selection and Editing -->
+        <div id="step2-selection" class="card p-4 my-3" style="display: none;">
+            <h3 class="h4">ステップ2: 基本項目を確定する</h3> {# 見出しも変更 #}
+            <p class="text-muted">生成された案から好きなものを選び、自由に編集して、あなたの物語の方向性を固めてください。</p>
+            <form id="selection-form">
+                <div id="dynamic-selection-fields">
+                    <!-- JavaScriptで動的に生成されます -->
+                </div>
+                <button id="confirm-selection-btn" type="button" class="btn btn-success">この内容で構成を確定する</button>
+                <button id="back-to-step1-btn" type="button" class="btn btn-secondary ms-2">ステップ1に戻る (再生成)</button>
+            </form>
+        </div>
+
+        <!-- STEP 3: Full Composition Generation -->
+        <div id="step3-composition" class="card p-4 my-3" style="display: none;">
+            <h3 class="h4">ステップ3: 物語の全体像を生成する</h3>
+            <p class="text-muted">確定した基本設定に基づいて、物語の構成要素を生成します。全体を一括で生成するか、特定の分類のみを生成できます。</p>
+            
+            <div class="d-flex gap-2 mb-4">
+                <button id="generate-composition-btn" class="btn btn-primary">全分類を一括生成</button>
+            </div>
+
+            <div id="composition-loading" class="text-center my-3" style="display: none;">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">全体構成を生成中... (数分かかる場合があります)</p>
+            </div>
+
+            <div id="category-generation-list" class="mb-4">
+                <!-- JavaScriptで動的に生成されます -->
+            </div>
+
+            <div id="composition-results" class="mt-3">
+                <!-- Suggestions will be loaded here -->
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="intent" role="tabpanel" aria-labelledby="intent-tab">
+        <div class="card p-4">
+            <h2 class="h4 mb-3">基本設定</h2>
+
+            <form method="post" action="/document/{{ document.id }}/intent">
+                <!-- ジャンル設定 -->
+                <div class="card mb-4 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="h6 mb-0">ジャンル設定</h3>
+                    </div>
+                    <div class="card-body">
+                        {% set genre_cfg = document.get('genre_config', {}) %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">主ジャンル (1つ)</label>
+                                <select name="main_genre" class="form-select form-select-sm">
+                                    <option value="">-- 未選択 --</option>
+                                    {% for g in available_genres %}
+                                    <option value="{{ g }}" {% if genre_cfg.main == g %}selected{% endif %}>{{ g }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">副ジャンル (複数可)</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    {% for g in available_genres %}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="sub_genres" value="{{ g }}" id="sub_{{ g }}"
+                                               {% if g in genre_cfg.sub | default([], true) %}checked{% endif %}>
+                                        <label class="form-check-label small" for="sub_{{ g }}">{{ g }}</label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if document.intent and document.intent.fields %}
+                    {% for key, field in document.intent.fields.items() %}
+                        <div class="mb-3 d-flex align-items-center">
+                            <label class="form-label fw-bold me-2">{{ field.label }}</label>
+                            <input
+                                type="text"
+                                name="intent_value_{{ key }}"
+                                value="{{ field.value }}"
+                                class="form-control flex-grow-1 me-2"
+                            >
+                            <button type="submit"
+                                    name="remove_intent"
+                                    value="{{ key }}"
+                                    class="btn btn-outline-danger btn-sm"
+                                    title="削除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>このドキュメントには意図が設定されていません。</p>
+                {% endif %}
+
+                <hr class="my-4">
+
+                <h4 class="h5 mb-3">基本設定項目を追加</h4>
+                <div class="mb-3 d-flex">
+                    <input
+                        type="text"
+                        name="new_intent_label"
+                        placeholder="項目名（例：テーマ、執筆方針）"
+                        class="form-control me-2"
+                        style="width:30%;"
+                    >
+                    <input
+                        type="text"
+                        name="new_intent_value"
+                        placeholder="内容"
+                        class="form-control me-2"
+                        style="width:55%;"
+                    >
+                    <button type="submit" name="add_intent" value="1" class="btn btn-purple">
+                        ＋ 追加
+                    </button>
+                </div>
+
+                <div class="d-flex">
+                    <button type="submit" name="save_intent" value="1" class="btn btn-success">
+                        基本設定を保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="composition" role="tabpanel" aria-labelledby="composition-tab">
+        <div class="card p-4 shadow-sm mt-3">
+            <form method="post" action="/document/{{ document.id }}">
+                <input type="hidden" name="update_composition_elements" value="1">
+
+                <h2 class="h4 mb-3">構成要素の定義</h2>
+
+                {% set doc_type_meta_data = global_composition_meta.doc_types.get(mapped_doc_type_id) %}                {% if doc_type_meta_data %}
+                    <h3 class="h5 mt-4">{{ doc_type_meta_data.label }}の構成要素</h3>
+                    {% if doc_type_meta_data.editable %}
+                        <div class="mb-3 d-flex">
+                            <input 
+                                type="text" 
+                                name="new_doc_type_category_label" 
+                                placeholder="新しい分類のラベル（例：登場人物、場所）" 
+                                class="form-control me-2" 
+                                style="width: 85%;"
+                            >
+                            <button 
+                                type="submit" 
+                                name="add_doc_type_category" 
+                                value="1" 
+                                class="btn btn-purple text-nowrap"
+                            >
+                                ＋ 追加
+                            </button>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% set all_categories_data = document.composition_elements.get('categories', []) %}
+                {% for category in all_categories_data %}
+                    {% set category_meta = (doc_type_meta_data.categories | selectattr("id", "equalto", category.id) | first) if doc_type_meta_data else none %}
+                    <div class="card p-3 mb-3">
+                        <h4 class="h6 mb-3 d-flex justify-content-between align-items-center">
+                            {% if category.editable %}
+                                <input type="text" name="category_{{ category.id }}_label" value="{{ category.label }}" class="form-control me-2 category-input">
+                            {% else %}
+                                <span>{{ category.label }}</span>
+                            {% endif %}
+
+                            {% if doc_type_meta_data and doc_type_meta_data.editable and category.editable and category.label != '基本項目' %}
+                                <button type="submit" name="remove_doc_type_category" value="{{ category.id }}" class="btn btn-outline-danger btn-sm ms-2" title="分類削除"><i class="bi bi-trash"></i></button>
+                            {% endif %}
+                        </h4>
+                        <div class="mb-3">
+                            <label for="additional_instruction_{{ category.id }}" class="form-label">この分類への追加指示</label>
+                            <textarea
+                                id="additional_instruction_{{ category.id }}"
+                                name="category_{{ category.id }}_additional_instruction"
+                                class="form-control"
+                                rows="3"
+                                placeholder="この分類に関するLLMへの追加の指示があれば入力してください（例：必ずSF要素を含めること）"
+                            >{{ category.additional_instruction if category.additional_instruction is not none else '' }}</textarea>
+                        </div>
+                        {% set category_id = category.id %}
+                        {% set elements = category.elements %}
+
+                        {% if elements %}
+                            {% for element in elements %}
+                                <div class="element-item mb-2 d-flex align-items-center">
+                                    <input
+                                        type="text"
+                                        name="element_label_{{ category_id }}_{{ element.id }}"
+                                        value="{{ element.label }}"
+                                        class="form-control me-2"
+                                        placeholder="{{ category.label }} #{{ loop.index + 1 }}"
+                                    >
+                                    <button type="submit" name="remove_element_{{ category_id }}_{{ element.id }}" value="{{ element.id }}" class="btn btn-outline-danger btn-sm" title="削除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        {% if category.editable %}
+                            <button type="submit" name="add_element_{{ category_id }}" value="1" class="btn btn-purple btn-sm mt-2">＋ {{ category.label }}を追加</button>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <hr class="my-4">
+                <button type="submit" class="btn btn-success mt-3 me-2">構成要素の保存</button>
+            </form>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="evaluation" role="tabpanel" aria-labelledby="evaluation-tab">
+        <div class="card p-4 shadow-sm mt-3">
+            <h2 class="h4 mb-3">構成要素案の評価</h2>
+            <p>提案された構成要素案を、分類ごとの評価基準に基づいて評価します。</p>
+            <div class="d-flex gap-2 flex-wrap" id="evaluation-buttons-container">
+                <!-- Dynamically generated evaluation buttons will go here -->
+            </div>
+            <div class="mt-2 d-flex align-items-center gap-3 flex-wrap">
+                <button type="button" id="quantum-optimize-btn" class="btn btn-primary">組み合わせ最適化</button>
+                <div id="quantum-energy-display" class="d-flex align-items-center gap-3" style="display: none;">
+                    <span id="q-solver-badge" class="badge bg-secondary py-2 px-3 fs-6 fw-normal">方式: <span id="q-solver-name" class="fw-bold text-white">-</span></span>
+                    <span class="badge bg-secondary py-2 px-3 fs-6 fw-normal">構造スコア: <span id="q-total-e" class="fw-bold text-white">-</span></span>
+                    <span class="text-white-50 fs-6">要素適合: <span id="q-e1" class="text-white fw-bold">-</span></span>
+                    <span class="text-white-50 fs-6">相互作用: <span id="q-e2" class="text-white fw-bold">-</span></span>
+                </div>
+            </div>
+            <!-- Optimized candidates list removed as per request -->
+
+            <!-- Placeholders for real-time updates -->
+            <div id="evaluation-status" class="mt-3"></div>
+
+            <!-- Energy Breakdown Section (Accordion) -->
+            <div id="energy-breakdown-container" class="mt-4" style="display: none;">
+                <div class="accordion" id="energyAccordion">
+                    <div class="accordion-item border-0 shadow-sm" style="background-color: #2d2d2d; border-radius: 8px; overflow: hidden;">
+                        <h3 class="accordion-header" id="headingEnergy">
+                            <button class="accordion-button collapsed fw-bold" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#collapseEnergy" aria-expanded="false" aria-controls="collapseEnergy"
+                                    style="background-color: #3a3a3a; color: #ffffff; box-shadow: none;">
+                                <i class="bi bi-graph-up-arrow me-2 text-info"></i> 【現在の構造分析】
+                            </button>
+                        </h3>
+                        <div id="collapseEnergy" class="accordion-collapse collapse" aria-labelledby="headingEnergy" data-bs-parent="#energyAccordion">
+                            <div class="accordion-body" style="background-color: #252525; color: #e0e0e0; border-top: 1px solid #444;">
+                                <div id="energy-summary" class="mb-3">
+                                    <!-- Summary will be populated here -->
+                                </div>
+                                
+                                <hr class="border-secondary">
+                                <h4 class="h6 fw-bold text-info" style="border-left: 3px solid #0dcaf0; padding-left: 8px;">【個別要素の適合度（ラベル別）】</h4>
+                                <div id="e1-details-list" class="list-group list-group-flush mb-3">
+                                    <!-- E1 details will be populated here -->
+                                </div>
+
+                                <hr class="border-secondary">
+                                <h4 class="h6 fw-bold text-info" style="border-left: 3px solid #0dcaf0; padding-left: 8px;">【要素間の相乗効果（相互作用ペア別）】</h4>
+                                <div id="e2-details-list" class="list-group list-group-flush">
+                                    <!-- E2 details will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h5 mb-0" id="current-evaluation-results-title">評価結果</h3>
+            </div>
+
+            <div id="evaluation-results-sections-container">
+                <!-- Category-specific evaluation result tables will be dynamically generated here -->
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="drafting" role="tabpanel" aria-labelledby="drafting-tab">
+        <div class="card p-4 shadow-lg mt-3" style="background-color: #1a1a1a; color: #e0e0e0; border: 1px solid #333;">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary pb-3">
+                <div>
+                    <h2 class="h4 mb-1 text-white">原稿案の執筆</h2>
+                    <p class="text-muted small mb-0">物語の設計図を元に、AIと共同で下書きを構築します。</p>
+                </div>
+                <div class="text-end d-flex gap-2">
+                    <button id="btn-save-draft-configs" class="btn btn-outline-success btn-sm px-3 shadow-sm">
+                        <i class="bi bi-save"></i> 下書き設定を保存
+                    </button>
+                    <button id="btn-reflect-evaluation" class="btn btn-outline-info btn-sm px-3 shadow-sm">
+                        <i class="bi bi-magic me-1"></i> 評価結果を同期
+                    </button>
+                </div>
+            </div>
+
+            <!-- セレクターセクション -->
+            <div class="mb-4 p-3 rounded-3" style="background-color: #252525; border: 1px solid #3d3d3d;">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-secondary">執筆の単位</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="draft-target-type" id="target-chapter" value="chapter" checked>
+                            <label class="btn btn-outline-secondary btn-sm" for="target-chapter">章</label>
+                            <input type="radio" class="btn-check" name="draft-target-type" id="target-scene" value="scene">
+                            <label class="btn btn-outline-secondary btn-sm" for="target-scene">シーン</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="select-chapter" class="form-label small fw-bold text-secondary">対象の章</label>
+                        <select id="select-chapter" class="form-select form-select-sm bg-dark text-white border-secondary"></select>
+                    </div>
+                    <div id="scene-select-container" class="col-md-3" style="display: none;">
+                        <label for="select-scene" class="form-label small fw-bold text-secondary">対象のシーン</label>
+                        <select id="select-scene" class="form-select form-select-sm bg-dark text-white border-secondary"></select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end gap-2">
+                        <button id="btn-add-structure" class="btn btn-outline-purple btn-sm btn-icon-square" title="追加">
+                            <i class="bi bi-file-earmark-plus"></i>
+                        </button>
+                        <button id="btn-edit-structure" class="btn btn-outline-info btn-sm btn-icon-square" title="編集">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button id="btn-delete-structure" class="btn btn-outline-danger btn-sm btn-icon-square" title="削除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 画面内追加・編集フォーム (初期は非表示) -->
+                <div id="add-structure-form-container" class="mt-3 p-3 rounded border border-info border-opacity-25" style="display: none; background-color: #1e1e1e;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="flex-grow-1">
+                            <label id="add-structure-label" class="form-label small fw-bold text-info mb-1">新しい章のタイトル</label>
+                            <input type="text" id="add-structure-title" class="form-control form-control-sm bg-dark text-white border-info border-opacity-50" placeholder="タイトルを入力...">
+                            <input type="hidden" id="edit-structure-id">
+                        </div>
+                        <div class="d-flex gap-2 align-items-end pt-4">
+                            <button id="btn-save-new-structure" class="btn btn-info btn-sm px-3">保存</button>
+                            <button id="btn-cancel-add-structure" class="btn btn-outline-secondary btn-sm">中止</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- 左ペイン: 構成管理 -->
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm" style="background-color: #252525;">
+                        <div class="card-header bg-transparent border-bottom border-secondary d-flex justify-content-between align-items-center py-3">
+                            <div>
+                                <h3 class="h6 fw-bold mb-1 text-info">構成要素</h3>
+                                <div class="d-flex gap-2">
+                                    <button id="btn-check-all" class="btn btn-outline-secondary btn-xs py-0 px-2 text-nowrap" style="font-size: 0.7rem;">全部選択</button>
+                                    <button id="btn-uncheck-all" class="btn btn-outline-secondary btn-xs py-0 px-2 text-nowrap" style="font-size: 0.7rem;">全部外す</button>
+                                </div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="cb-lock-structure">
+                                <label class="form-check-label small text-muted" for="cb-lock-structure">固定</label>
+                            </div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div id="dynamic-draft-elements-container" class="custom-scrollbar" style="max-height: 600px; overflow-y: auto;">
+                                <div class="text-center text-muted my-5">
+                                    <i class="bi bi-layers h1 d-block mb-3"></i>
+                                    <p class="small">「評価結果を同期」すると、<br>選んだ構成案がここに展開されます。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右ペイン: 演出設定 -->
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm" style="background-color: #252525;">
+                        <div class="card-header bg-transparent border-bottom border-secondary py-3">
+                            <h3 class="h6 fw-bold mb-0 text-info">追加設定</h3>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <label class="form-label small text-secondary">場所</label>
+                                    <input type="text" id="draft-location" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-secondary">時間</label>
+                                    <input type="text" id="draft-time" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-secondary">天候</label>
+                                    <input type="text" id="draft-weather" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-secondary">視点</label>
+                                    <input type="text" id="draft-viewpoint" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-secondary">文体</label>
+                                    <input type="text" id="draft-style" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-6">
+                                    <label class="small text-secondary">文字数目安</label>
+                                    <input type="text" id="draft-length" class="form-control form-control-sm bg-dark text-white border-secondary">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small text-secondary">補足指示（こだわり条件など）</label>
+                                    <textarea id="draft-additional-info" class="form-control bg-dark text-white border-secondary" rows="5" placeholder="特定のセリフや展開の指定があれば入力"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-top border-secondary">
+                                <label class="form-label small fw-bold text-secondary d-block mb-3">執筆モード</label>
+                                <div class="row g-2 mb-4">
+                                    <div class="col-6">
+                                        <input type="radio" class="btn-check" name="draft_mode" id="mode-generate" value="generate" checked>
+                                        <label class="btn btn-outline-success btn-sm w-100 py-2" for="mode-generate">
+                                            <i class="bi bi-cpu"></i> 自動生成
+                                        </label>
+                                    </div>
+                                    <div class="col-6">
+                                        <input type="radio" class="btn-check" name="draft_mode" id="mode-prompt-only" value="prompt_only">
+                                        <label class="btn btn-outline-warning btn-sm w-100 py-2" for="mode-prompt-only">
+                                            <i class="bi bi-terminal"></i> プロンプト出力
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button id="btn-generate-draft" class="btn btn-purple btn-lg w-100 shadow">
+                                    <i class="bi bi-pencil-square"></i> 下書きを作成する
+                                </button>
+                                <div id="draft-gen-loading" class="mt-3" style="display: none;">
+                                    <div class="spinner-grow spinner-grow-sm text-success" role="status"></div>
+                                    <span class="ms-2 small text-success fw-bold">AIが執筆プランを練っています...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-5 border-secondary">
+
+            <div class="section-generated-drafts">
+                <h3 class="h5 mb-4 text-white"><i class="bi bi-archive me-2"></i>原稿案</h3>
+                <div class="table-responsive rounded-3 border border-secondary">
+                    <table class="table table-dark table-hover mb-0 align-middle">
+                        <thead class="table-dark">
+                            <tr class="text-secondary small">
+                                <th style="width: 15%">執筆日</th>
+                                <th style="width: 25%">対象</th>
+                                <th style="width: 45%">内容</th>
+                                <th style="width: 15%" class="text-end">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="draft-list-body" class="small">
+                            <!-- JSで動的に追加 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="manuscript" role="tabpanel" aria-labelledby="manuscript-tab">
+        <div class="card p-4 shadow-sm mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h4 mb-0">原稿の推敲・執筆</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <button id="btn-download-manuscript" class="btn btn-outline-info btn-sm px-3">
+                        <i class="bi bi-download me-1"></i> 原稿をダウンロード
+                    </button>
+                    <div class="badge bg-info" id="manuscript-status">執筆中</div>
+                </div>
+            </div>
+            <p class="text-muted small">AIが生成した原稿案を元に、ここで物語を仕上げていきます。</p>
+            <div class="mb-3">
+                <textarea id="manuscript-editor" class="form-control" placeholder="ここに物語を書き込んでください。" style="min-height: 600px; font-family: 'Sawarabi Mincho', serif; line-height: 1.8; font-size: 1.1rem; padding: 2rem;"></textarea>
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+                <button id="btn-save-manuscript" class="btn btn-success px-4">原稿を推敲保存</button>
+                <button id="btn-finalize-manuscript" class="btn btn-outline-primary px-4">完成稿にする</button>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="evaluation-criteria" role="tabpanel" aria-labelledby="evaluation-criteria-tab">
+        <div id="evaluation-criteria-container">
+            {% include "evaluation_criteria.html" %}
+        </div>
+    </div>
+
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const docId = "{{ document.id }}";
+    const documentDataElement = document.getElementById('document-data');
+    const documentData = JSON.parse(documentDataElement.dataset.doc || '{}');
+    const semanticLabelSchemaElement = document.getElementById('semantic-label-schema');
+    const semanticLabelSchema = JSON.parse(semanticLabelSchemaElement.dataset.schema || '{}');
+    const semanticLabelSchemaOrder = JSON.parse(semanticLabelSchemaElement.dataset.orderedKeys || '[]'); // Get original key order
+
+    // --- UI Elements ---
+    const step1Div = document.getElementById('step1-proposals');
+    const step2Div = document.getElementById('step2-selection');
+    const step3Div = document.getElementById('step3-composition');
+
+    const generateProposalsBtn = document.getElementById('generate-proposals-btn');
+    const proposalsLoadingDiv = document.getElementById('proposals-loading');
+    const proposalsResultsDiv = document.getElementById('proposals-results');
+
+    const selectedTitleInput = document.getElementById('selected-title');
+    const selectedPlotTextarea = document.getElementById('selected-plot');
+    const confirmSelectionBtn = document.getElementById('confirm-selection-btn');
+
+    const generateCompositionBtn = document.getElementById('generate-composition-btn');
+    const compositionResultsDiv = document.getElementById('composition-results');
+
+    // --- UI Elements (Evaluation Tab) ---
+    const evaluationButtonsContainer = document.getElementById('evaluation-buttons-container');
+    const evaluationStatusDiv = document.getElementById('evaluation-status');
+    const evaluationResultsBody = document.getElementById('evaluation-results-body');
+    const evaluationResultsThead = document.getElementById('evaluation-results-thead');
+    const currentEvaluationResultsTitle = document.getElementById('current-evaluation-results-title');
+
+    // --- Document Download Logic ---
+    const downloadDocumentBtn = document.getElementById('download-document-btn');
+    if (downloadDocumentBtn) {
+        downloadDocumentBtn.addEventListener('click', async () => {
+            const originalText = downloadDocumentBtn.textContent;
+            downloadDocumentBtn.disabled = true;
+            downloadDocumentBtn.textContent = 'ダウンロード中...';
+
+            try {
+                const response = await fetch(`/document/${docId}/download`);
+                if (!response.ok) throw new Error('ダウンロードに失敗しました。');
+                
+                const blob = await response.blob();
+                const filename = `${documentData.title || 'document'}.json`;
+
+                // 保存先を選択するダイアログを表示（対応ブラウザのみ）
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: filename,
+                            types: [{
+                                description: 'JSONファイル',
+                                accept: {'application/json': ['.json']},
+                            }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        showAlert('ファイルを保存しました。', 'success');
+                        return;
+                    } catch (err) {
+                        if (err.name === 'AbortError') return;
+                        // フォールバックへ
+                    }
+                }
+
+                // 従来の方式
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showAlert('ファイルを保存しました。', 'success');
+            } catch (error) {
+                console.error('Download error:', error);
+                showAlert(`ダウンロード中にエラーが発生しました: ${error.message}`);
+            } finally {
+                downloadDocumentBtn.disabled = false;
+                downloadDocumentBtn.textContent = originalText;
+            }
+        });
+    }
+
+    // --- Energy Breakdown UI Elements ---
+    const energyBreakdownContainer = document.getElementById('energy-breakdown-container');
+    const energySummary = document.getElementById('energy-summary');
+    const e1DetailsList = document.getElementById('e1-details-list');
+    const e2DetailsList = document.getElementById('e2-details-list');
+
+    async function updateEnergyBreakdown() {
+        const selectedItems = []; // List of {category, element, labels}
+        
+        // Collect ALL selected radio buttons from all sections
+        const allSelectedRadios = document.querySelectorAll('.evaluation-radio:checked');
+        
+        allSelectedRadios.forEach(radio => {
+            const row = radio.closest('tr');
+            const categoryName = radio.dataset.category;
+            const elementName = radio.dataset.element;
+            
+            const itemLabels = {};
+            
+            // data-label-en を持つセルから値を収集
+            const valueCells = row.querySelectorAll('td[data-label-en]');
+            valueCells.forEach(cell => {
+                const enKey = cell.dataset.labelEn;
+                const val = parseInt(cell.textContent);
+                if (!isNaN(val)) {
+                    // サーバー側で逆引きできるように日本語ラベル名を取得して送る
+                    const labelSpec = semanticLabelSchema[categoryName][enKey];
+                    if (labelSpec && labelSpec.ja_label) {
+                        itemLabels[labelSpec.ja_label] = val;
+                    }
+                }
+            });
+
+            selectedItems.push({
+                category: categoryName,
+                element: elementName,
+                labels: itemLabels
+            });
+        });
+
+        if (selectedItems.length === 0) {
+            energyBreakdownContainer.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`/document/${docId}/calculate_energy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selected_items: selectedItems })
+            });
+            const data = await response.json();
+
+            if (data.error) {
+                console.error("Energy calculation error:", data.error);
+                return;
+            }
+
+            // Update UI
+            energyBreakdownContainer.style.display = 'block';
+            
+            energySummary.innerHTML = `
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="small" style="color: #aaa;">総構造スコア</div>
+                        <div class="h4 mb-0 fw-bold font-monospace text-white">${data.total.toFixed(4)}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small" style="color: #aaa;">個別要素の適合度</div>
+                        <div class="h4 mb-0 font-monospace text-light">${data.E1.toFixed(4)} <small style="color: #888;" class="fs-6">(${data.ratio1.toFixed(2)}%)</small></div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small" style="color: #aaa;">要素間の相乗効果</div>
+                        <div class="h4 mb-0 font-monospace text-light">${data.E2.toFixed(4)} <small style="color: #888;" class="fs-6">(${data.ratio2.toFixed(2)}%)</small></div>
+                    </div>
+                </div>
+            `;
+
+            e1DetailsList.innerHTML = data.E1_details.map(detail => `
+                <div class="list-group-item d-flex justify-content-between align-items-center py-1 bg-transparent border-0">
+                    <span class="small" style="color: #ccc;">${detail.key}</span>
+                    <span class="small font-monospace" style="color: #0dcaf0;">${detail.value.toFixed(4)} <small style="color: #777;">(${detail.ratio.toFixed(2)}%)</small></span>
+                </div>
+            `).join('');
+
+            e2DetailsList.innerHTML = data.E2_details.map(detail => `
+                <div class="list-group-item py-1 bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small text-truncate" title="${detail.key_a} × ${detail.key_b}" style="color: #ccc;">
+                            ${detail.key_a} <span style="color: #666;">×</span> ${detail.key_b}
+                        </span>
+                        <span class="small font-monospace ${detail.value < 0 ? 'text-info' : 'text-warning'}">
+                            ${detail.value.toFixed(4)} <small style="color: #777;">(${detail.ratio.toFixed(2)}%)</small>
+                        </span>
+                    </div>
+                </div>
+            `).join('') || '<div class="list-group-item text-muted small py-1 bg-transparent border-0">相互作用なし</div>';
+
+        } catch (error) {
+            console.error("Failed to update energy breakdown:", error);
+        }
+    }
+
+    // Delegate radio change events for energy breakdown AND saving manual selection
+    const evaluationResultsSectionsContainer = document.getElementById('evaluation-results-sections-container');
+    evaluationResultsSectionsContainer.addEventListener('change', async (e) => {
+        if (e.target.type === 'radio') {
+            updateEnergyBreakdown();
+            
+            // 手動選択の保存
+            if (e.target.classList.contains('evaluation-radio')) {
+                const category = e.target.dataset.category;
+                const element = e.target.dataset.element;
+                const index = parseInt(e.target.dataset.index);
+                
+                try {
+                    const response = await fetch(`/document/${docId}/save_manual_selection`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ category, element, index })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        // メモリ内のデータを更新して整合性を保つ
+                        if (!documentData.best_selection) documentData.best_selection = {};
+                        if (!documentData.best_selection[category]) documentData.best_selection[category] = {};
+                        documentData.best_selection[category][element] = index;
+                        console.log("Manual selection saved to working.json");
+                    }
+                } catch (err) {
+                    console.error("Failed to save manual selection:", err);
+                }
+            }
+        }
+    });
+
+    // --- UI Elements (Fit Tab) ---
+    const calculateFitBtnV2 = document.getElementById('calculate-fit-btn-v2');
+    const fitProgressContainer = document.getElementById('fit-progress-container');
+    const fitProgressBar = document.getElementById('fit-progress-bar');
+    const fitStatusMessage = document.getElementById('fit-status-message');
+    const fitResultsContainer = document.getElementById('fit-results-container');
+    const fitResultsBodyV2 = document.getElementById('fit-results-body-v2');
+
+
+    // --- 自動保存機能 (Auto-save) ---
+    let autoSaveTimeout;
+    const autoSaveStatus = document.getElementById('auto-save-status');
+
+    async function autoSaveDocument() {
+        if (autoSaveStatus) autoSaveStatus.style.display = 'inline-block';
+        
+        const dataToSave = {};
+
+        // 1. Intent (基本設定)
+        const intentFields = {};
+        document.querySelectorAll('input[name^="intent_value_"]').forEach(input => {
+            const key = input.name.replace('intent_value_', '');
+            // 既存の documentData.intent.fields から label を取得
+            const fieldLabel = documentData.intent?.fields?.[key]?.label || key;
+            intentFields[key] = { label: fieldLabel, value: input.value };
+        });
+        if (Object.keys(intentFields).length > 0) {
+            dataToSave.intent = { fields: intentFields };
+        }
+
+        // 2. Genre Config
+        const mainGenre = document.querySelector('select[name="main_genre"]');
+        const subGenres = Array.from(document.querySelectorAll('input[name="sub_genres"]:checked')).map(cb => cb.value);
+        if (mainGenre) {
+            dataToSave.genre_config = {
+                main: mainGenre.value,
+                sub: subGenres
+            };
+        }
+
+        // 3. Composition Elements (構成要素)
+        if (documentData.composition_elements && documentData.composition_elements.categories) {
+            const updatedCategories = JSON.parse(JSON.stringify(documentData.composition_elements.categories));
+            updatedCategories.forEach(cat => {
+                // カテゴリラベルの取得
+                const catLabelInput = document.querySelector(`input[name="category_${cat.id}_label"]`);
+                if (catLabelInput) cat.label = catLabelInput.value;
+
+                // 追加指示の取得
+                const instructionTextarea = document.querySelector(`textarea[name="category_${cat.id}_additional_instruction"]`);
+                if (instructionTextarea) cat.additional_instruction = instructionTextarea.value;
+
+                // 各要素ラベルの取得
+                if (cat.elements) {
+                    cat.elements.forEach(el => {
+                        const elLabelInput = document.querySelector(`input[name="element_label_${cat.id}_${el.id}"]`);
+                        if (elLabelInput) el.label = elLabelInput.value;
+                    });
+                }
+            });
+            dataToSave.composition_elements = { categories: updatedCategories };
+        }
+
+        // 4. Manuscript (原稿)
+        const manuscriptEditor = document.getElementById('manuscript-editor');
+        if (manuscriptEditor) {
+            dataToSave.manuscript_full_text = manuscriptEditor.value;
+        }
+
+        try {
+            const response = await fetch(`/api/document/${docId}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataToSave)
+            });
+            const result = await response.json();
+            if (result.success) {
+                console.log("Document auto-saved successfully.");
+                // メモリ上のデータを更新 (必要に応じて)
+                if (dataToSave.intent) documentData.intent = dataToSave.intent;
+                if (dataToSave.genre_config) documentData.genre_config = dataToSave.genre_config;
+                if (dataToSave.composition_elements) documentData.composition_elements = dataToSave.composition_elements;
+            }
+        } catch (error) {
+            console.error("Auto-save error:", error);
+        } finally {
+            if (autoSaveStatus) {
+                setTimeout(() => {
+                    autoSaveStatus.style.display = 'none';
+                }, 1000);
+            }
+        }
+    }
+
+    function triggerAutoSaveDocument() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveDocument, 2000); // 2秒デバウンス
+    }
+
+    // 全ての主要な入力フィールドにリスナーを追加
+    const watchSelectors = [
+        'input[name^="intent_value_"]',
+        'select[name="main_genre"]',
+        'input[name="sub_genres"]',
+        '.category-input',
+        'textarea[name$="_additional_instruction"]',
+        'input[name^="element_label_"]',
+        '#manuscript-editor'
+    ];
+
+    document.querySelectorAll(watchSelectors.join(',')).forEach(el => {
+        el.addEventListener('change', triggerAutoSaveDocument);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+            el.addEventListener('input', triggerAutoSaveDocument);
+        }
+    });
+
+    // --- Functions ---
+    function showAlert(message, type = 'danger') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.querySelector('.tab-content').prepend(alertDiv);
+    }
+
+    function renderProposals(suggestions) {
+        const proposalsContainer = document.getElementById('proposals-results');
+        proposalsContainer.innerHTML = ''; // 以前のコンテンツをクリア
+
+        let basicSettingsCategoryFromLLM = null;
+        suggestions.forEach(s => {
+            if (s.category === "基本項目" || s.category === "基本設定") {
+                basicSettingsCategoryFromLLM = s;
+            }
+        });
+
+        if (!basicSettingsCategoryFromLLM || !basicSettingsCategoryFromLLM.elements) {
+            proposalsContainer.innerHTML = '<div class="alert alert-info">基本項目の提案は見つかりませんでした。</div>';
+            return;
+        }
+
+        // document.composition_elements から "base" カテゴリの要素の順序とタイプを取得
+        let orderedBasicElements = [];
+        const baseCategoryFromDoc = documentData.composition_elements?.categories?.find(cat => cat.id === 'base');
+        if (baseCategoryFromDoc && baseCategoryFromDoc.elements) {
+            orderedBasicElements = baseCategoryFromDoc.elements; // {id, label, editable} のオブジェクト配列
+        } else {
+            // "base" カテゴリが見つからない場合は、LLMからの応答のキーをそのまま使う（順序とタイプは保証されない）
+            orderedBasicElements = Object.keys(basicSettingsCategoryFromLLM.elements).map(label => ({label: label, id: label}));
+        }
+
+        // ステップ1の提案リストとステップ2の動的入力フィールドのHTMLを生成
+        const dynamicSelectionFieldsContainer = document.getElementById('dynamic-selection-fields');
+        dynamicSelectionFieldsContainer.innerHTML = ''; // クリア
+
+        let generatedStep2Fields = {}; // {elementLabel: {id, type, value}}
+
+        orderedBasicElements.forEach(basicElementMeta => {
+            const elementName = basicElementMeta.label; // 例: "題名", "あらすじ"
+            const elementId = basicElementMeta.id; // 例: "title", "plot"
+            const inputFieldType = (elementId === 'plot' || elementName === 'あらすじ') ? 'textarea' : 'input'; // あらすじはtextarea
+
+            // LLMからの提案がある場合
+            if (basicSettingsCategoryFromLLM.elements.hasOwnProperty(elementName)) {
+                const elementProposals = basicSettingsCategoryFromLLM.elements[elementName];
+                
+                // --- Step 1 proposals HTML ---
+                let elementHtmlStep1 = `<h4 class="h5 mt-4">${elementName}案</h4><div class="list-group mb-4">`;
+                elementProposals.forEach(p => {
+                    const radioName = `${elementName}-proposal`;
+                    elementHtmlStep1 += `
+                        <label class="list-group-item">
+                            <input class="form-check-input me-2" type="radio" name="${radioName}" value="${p.replace(/"/g, '&quot;')}" data-element-label="${elementName}">
+                            ${p}
+                        </label>
+                    `;
+                });
+                elementHtmlStep1 += '</div>';
+                proposalsContainer.innerHTML += elementHtmlStep1; // Step 1 に追加
+            }
+
+            // --- Step 2 dynamic input field HTML ---
+            const fieldId = `selected-${elementId}`; // 例: selected-title, selected-plot
+            const fieldName = `selected-${elementId}`; // フォーム送信用のname
+            let fieldHtmlStep2 = `
+                <div class="mb-3">
+                    <label for="${fieldId}" class="form-label fw-bold">確定した${elementName}</label>
+            `;
+            if (inputFieldType === 'textarea') {
+                fieldHtmlStep2 += `<textarea id="${fieldId}" name="${fieldName}" class="form-control" rows="5" required></textarea>`;
+            } else {
+                fieldHtmlStep2 += `<input type="text" id="${fieldId}" name="${fieldName}" class="form-control" required>`;
+            }
+            fieldHtmlStep2 += '</div>';
+            dynamicSelectionFieldsContainer.innerHTML += fieldHtmlStep2; // Step 2 に追加
+
+            // 後で値設定できるようにIDを記録
+            generatedStep2Fields[elementName] = { id: fieldId, type: inputFieldType, label: elementName };
+        });
+
+        // Step 1 のラジオボタンのイベントリスナーを設定
+        // 選択された値を Step 2 の動的入力フィールドに反映
+        orderedBasicElements.forEach(basicElementMeta => {
+            const elementName = basicElementMeta.label;
+            const fieldId = `selected-${basicElementMeta.id}`;
+            const radioName = `${elementName}-proposal`;
+
+            document.querySelectorAll(`input[name="${radioName}"]`).forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const targetField = document.getElementById(fieldId);
+                    if (targetField) {
+                        targetField.value = e.target.value;
+                    }
+                });
+            });
+        });
+        // --- Step 2の既存データがあればセット ---
+        // documentData.selected_basic_elements に保存されている値があれば、それを初期値としてセット
+        if (documentData.selected_basic_elements) {
+            for (const elemId in documentData.selected_basic_elements) {
+                const field = document.getElementById(`selected-${elemId}`);
+                if (field) {
+                    field.value = documentData.selected_basic_elements[elemId];
+                }
+            }
+        }
+    }
+    function showStep(step) {
+        step1Div.style.display = 'none';
+        step2Div.style.display = 'none';
+        step3Div.style.display = 'none';
+
+        if (step === 1) {
+            step1Div.style.display = 'block';
+        } else if (step === 2) {
+            step1Div.style.display = 'block';
+            step2Div.style.display = 'block';
+        } else if (step === 3) {
+            step1Div.style.display = 'block';
+            step2Div.style.display = 'block';
+            step3Div.style.display = 'block';
+        }
+    }
+
+    // --- Event Listeners ---
+    generateProposalsBtn.addEventListener('click', async () => {
+        generateProposalsBtn.disabled = true;
+        proposalsLoadingDiv.style.display = 'block';
+        proposalsResultsDiv.style.display = 'none';
+
+        try {
+            const response = await fetch(`/document/${docId}/generate_proposals`, { method: 'POST' });
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to generate proposals.');
+            }
+
+            if (data.message) showAlert(data.message, 'info');
+
+            renderProposals(data.suggestions);
+            proposalsResultsDiv.style.display = 'block';
+            showStep(2);
+
+            // Update client-side documentData with new proposals
+            if (data.suggestions) {
+                const basicSettingsCat = data.suggestions.find(s => s.category === "基本項目" || s.category === "基本設定");
+                if (basicSettingsCat) {
+                    // Find existing basic settings and replace or add
+                    const existingIndex = documentData.llm_suggestions.findIndex(s => s.category === "基本項目" || s.category === "基本設定");
+                    if (existingIndex > -1) {
+                        documentData.llm_suggestions[existingIndex] = basicSettingsCat;
+                    } else {
+                        documentData.llm_suggestions.push(basicSettingsCat);
+                    }
+                }
+            }
+        } catch (error) {
+            showAlert(`提案の生成に失敗しました: ${error.message}`);
+            showStep(1);
+        } finally {
+            generateProposalsBtn.disabled = false;
+            proposalsLoadingDiv.style.display = 'none';
+        }
+    });
+
+    confirmSelectionBtn.addEventListener('click', async () => {
+        const dynamicSelectionFieldsContainer = document.getElementById('dynamic-selection-fields');
+        const allInputs = dynamicSelectionFieldsContainer.querySelectorAll('input, textarea');
+        let selectedBasicElements = {};
+        let allFieldsFilled = true;
+
+        allInputs.forEach(input => {
+            const fieldName = input.name.replace('selected-', ''); // "selected-title" -> "title"
+            selectedBasicElements[fieldName] = input.value;
+            if (!input.value && input.required) { // required 属性があれば必須チェック
+                allFieldsFilled = false;
+            }
+        });
+
+        if (!allFieldsFilled) {
+            showAlert('すべての基本設定を入力してください。', 'warning');
+            return;
+        }
+
+        // 特に題名とあらすじは必須 (なくても生成フローは進むが、UI上は重要なのでチェック)
+        const title = selectedBasicElements["title"];
+        const plot = selectedBasicElements["plot"];
+        if (!title || !plot) {
+             showAlert('題名とあらすじの両方を入力してください。', 'warning');
+             return;
+        }
+
+        confirmSelectionBtn.disabled = true;
+        confirmSelectionBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 保存中...`;
+
+        try {
+            const response = await fetch(`/document/${docId}/save_selection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedBasicElements)
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to save selection.');
+            }
+            
+            // UI更新
+            document.getElementById('document-title-heading').textContent = title; // 題名があれば更新
+            document.title = title; // ブラウザタブのタイトルも更新
+
+            documentData.selected_basic_elements = selectedBasicElements;
+
+
+            showAlert('構成を確定しました。ステップ3に進んでください。', 'success');
+            showStep(3);
+
+        } catch (error) {
+            showAlert(`保存に失敗しました: ${error.message}`);
+        } finally {
+            confirmSelectionBtn.disabled = false;
+            confirmSelectionBtn.innerHTML = 'この内容で構成を確定する';
+        }
+    });
+    const backToStep1Btn = document.getElementById('back-to-step1-btn');
+    backToStep1Btn.addEventListener('click', () => {
+        showStep(1);
+    });
+
+    async function generateCategoryComposition(categoryLabel, resultsContainerId) {
+        const categorySectionId = `composition-for-${categoryLabel.replace(/\s/g, '-')}`;
+        let categorySection = document.getElementById(categorySectionId);
+        
+        if (!categorySection) {
+             const resultsDiv = document.getElementById(resultsContainerId);
+             resultsDiv.insertAdjacentHTML('beforeend', `
+                <div id="${categorySectionId}" class="card p-3 mb-2">
+                    <h5>分類: ${categoryLabel}</h5>
+                    <div class="results-content"></div>
+                </div>
+            `);
+            categorySection = document.getElementById(categorySectionId);
+        }
+
+        // Always show the header and a spinner
+        categorySection.innerHTML = `
+            <h5>分類: ${categoryLabel}</h5>
+            <div class="text-center my-2">
+                <div class="spinner-border text-secondary spinner-border-sm" role="status"></div>
+                <p class="mt-1 text-muted">生成中...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch(`/document/${docId}/generate_composition`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category_label: categoryLabel })
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+                 categorySection.innerHTML = `
+                    <h5>分類: ${categoryLabel}</h5>
+                    <div class="alert alert-danger mb-0">${data.error || "提案の生成に失敗しました。"}</div>
+                `;
+                 return;
+            }
+
+            renderSingleCategorySuggestions(categorySectionId, data.suggestions[0]);
+
+            // Update client-side documentData with new composition suggestions
+            const newCategorySuggestion = data.suggestions[0];
+            if (newCategorySuggestion) {
+                const existingIndex = documentData.llm_suggestions.findIndex(s => s.category === newCategorySuggestion.category);
+                if (existingIndex > -1) {
+                    documentData.llm_suggestions[existingIndex] = newCategorySuggestion;
+                } else {
+                    documentData.llm_suggestions.push(newCategorySuggestion);
+                }
+            }
+        } catch (error) {
+            categorySection.innerHTML = `
+                <h5>分類: ${categoryLabel}</h5>
+                <div class="alert alert-danger mb-0">エラーが発生しました: ${error.message}</div>
+            `;
+        }
+    }
+
+    function renderCategoryGenerationList() {
+        const listContainer = document.getElementById('category-generation-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = '<h5 class="h6 mb-3">分類ごとの生成:</h5>';
+        
+        const categoriesToGenerate = (documentData.composition_elements?.categories || [])
+            .filter(c => c.id !== 'base' && c.label !== '基本設定' && c.label !== '基本項目')
+            .map(c => c.label);
+
+        if (categoriesToGenerate.length === 0) {
+            listContainer.innerHTML += '<p class="text-muted small">生成可能な分類がありません。「構成要素」タブで設定してください。</p>';
+            return;
+        }
+
+        const group = document.createElement('div');
+        group.className = 'list-group list-group-flush border rounded';
+
+        categoriesToGenerate.forEach(label => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+            item.innerHTML = `
+                <span>${label}</span>
+                <button class="btn btn-outline-primary btn-sm generate-cat-btn" data-category="${label}">生成 / 再生成</button>
+            `;
+            group.appendChild(item);
+        });
+        listContainer.appendChild(group);
+
+        // Add event listeners to individual buttons
+        listContainer.querySelectorAll('.generate-cat-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const categoryLabel = btn.dataset.category;
+                btn.disabled = true;
+                const originalText = btn.textContent;
+                btn.textContent = '生成中...';
+                
+                await generateCategoryComposition(categoryLabel, 'composition-results');
+                
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        });
+    }
+
+    generateCompositionBtn.addEventListener('click', async () => {
+        generateCompositionBtn.disabled = true;
+        generateCompositionBtn.textContent = '全体を生成中...';
+        const compositionLoadingDiv = document.getElementById('composition-loading');
+        if (compositionLoadingDiv) compositionLoadingDiv.style.display = 'block';
+        compositionResultsDiv.innerHTML = '';
+
+        const categoriesToGenerate = (documentData.composition_elements?.categories || [])
+            .filter(c => c.id !== 'base' && c.label !== '基本設定' && c.label !== '基本項目')
+            .map(c => c.label);
+
+        for (const categoryLabel of categoriesToGenerate) {
+            await generateCategoryComposition(categoryLabel, 'composition-results');
+        }
+
+        if (compositionLoadingDiv) compositionLoadingDiv.style.display = 'none';
+        generateCompositionBtn.textContent = '全分類を一括生成 (再実行)';
+        generateCompositionBtn.disabled = false;
+    });
+
+    // --- Dynamic Evaluation Buttons Generation ---
+    function renderEvaluationButtons() {
+        evaluationButtonsContainer.innerHTML = '';
+        
+        let classificationsToRender = semanticLabelSchemaOrder;
+        if (!classificationsToRender || classificationsToRender.length === 0) {
+            classificationsToRender = Object.keys(semanticLabelSchema);
+        }
+
+        classificationsToRender.forEach(classificationName => {
+            if (classificationName === "基本設定" || classificationName === "scale") return; // Exclude
+            if (!semanticLabelSchema[classificationName]) return; // Safety check
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-primary evaluation-btn me-2 mb-2';
+            button.dataset.classification = classificationName;
+            button.textContent = `${classificationName}を評価`;
+            evaluationButtonsContainer.appendChild(button);
+
+            button.addEventListener('click', () => runClassificationEvaluation(classificationName));
+        });
+
+        if (evaluationButtonsContainer.children.length > 0) {
+            const allButton = document.createElement('button');
+            allButton.type = 'button';
+            allButton.className = 'btn btn-info evaluation-btn mb-2';
+            allButton.dataset.classification = ''; // Empty string for all
+            allButton.textContent = `全て評価`;
+            evaluationButtonsContainer.appendChild(allButton);
+            allButton.addEventListener('click', () => runClassificationEvaluation(''));
+        }
+    }
+
+    // --- Evaluation Results Rendering Helpers ---
+
+    function getOrCreateEvaluationSection(categoryName) {
+        const sectionId = `evaluation-results-section-${categoryName.replace(/\s+/g, '_')}`;
+        let section = document.getElementById(sectionId);
+        
+        if (!section) {
+            section = document.createElement('div');
+            section.id = sectionId;
+            section.className = 'evaluation-results-section mb-4 card p-3 shadow-sm';
+            section.dataset.category = categoryName; // 追加：カテゴリ名をデータ属性に保持
+            
+            const title = document.createElement('h4');
+            title.className = 'h6 border-bottom pb-2 mb-3 fw-bold';
+            title.textContent = `${categoryName} 評価結果`;
+            section.appendChild(title);
+
+            const tableResponsive = document.createElement('div');
+            tableResponsive.className = 'table-responsive';
+            
+            const table = document.createElement('table');
+            table.className = 'table table-bordered table-sm mb-0';
+            
+            const thead = document.createElement('thead');
+            thead.className = 'table-light';
+            
+            // Generate headers
+            const labelsForClassification = semanticLabelSchema[categoryName];
+            const allLabelKeysForRows = [];
+            let headerHtml = '<tr><th>選択</th><th>要素名</th><th>#</th><th style="width: 40%;">テキスト</th>';
+            
+            if (labelsForClassification) {
+                for (const labelKey in labelsForClassification) {
+                    const jaLabel = labelsForClassification[labelKey].ja_label;
+                    headerHtml += `<th>${jaLabel}</th>`;
+                    allLabelKeysForRows.push(labelKey);
+                }
+            } else {
+                 // Fallback for unknown categories if schema is missing
+                 headerHtml = '<tr><th>選択</th><th>要素名</th><th style="width: 40%;">テキスト</th></tr>';
+            }
+            headerHtml += '<th>構造分析詳細</th>';
+            headerHtml += '</tr>';
+            thead.innerHTML = headerHtml;
+            thead.dataset.orderedKeys = JSON.stringify(allLabelKeysForRows);
+
+            const tbody = document.createElement('tbody');
+            
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            tableResponsive.appendChild(table);
+            section.appendChild(tableResponsive);
+            evaluationResultsSectionsContainer.appendChild(section);
+        }
+        return section;
+    }
+
+    function renderInitialSemanticLabels() {
+        const initialSemanticLabels = {{ document.semantic_labels | tojson | default([], true) }};
+        if (!initialSemanticLabels || initialSemanticLabels.length === 0) return;
+
+        // Group by category to ensure we process them correctly if needed, 
+        // but renderSemanticLabelItem handles section creation.
+        initialSemanticLabels.forEach(item => {
+            renderSemanticLabelItem(item);
+        });
+    }
+
+    function renderSemanticLabelItem(item) {
+        const classificationName = item.category;
+        if (!semanticLabelSchema[classificationName]) return; // Skip if no schema defined
+
+        const section = getOrCreateEvaluationSection(classificationName);
+        const tbody = section.querySelector('tbody');
+        const thead = section.querySelector('thead');
+        const orderedKeys = JSON.parse(thead.dataset.orderedKeys || '[]');
+        const labelsForClassification = semanticLabelSchema[classificationName];
+
+        // --- Find corresponding proposals in llm_suggestions ---
+        let proposalsList = [];
+        if (documentData.llm_suggestions) {
+            const catSuggestion = documentData.llm_suggestions.find(s => s.category === item.category);
+            if (catSuggestion && catSuggestion.elements && catSuggestion.elements[item.element]) {
+                proposalsList = catSuggestion.elements[item.element];
+            }
+        }
+
+        // Ensure item.labels is always an array for iteration
+        let labelsList = [];
+        if (Array.isArray(item.labels)) {
+            labelsList = item.labels;
+        } else if (typeof item.labels === 'object' && item.labels !== null) {
+            labelsList = [item.labels];
+        }
+
+        // Error Handling: Count Mismatch
+        if (proposalsList.length > 0 && proposalsList.length !== labelsList.length) {
+            console.warn(`WARNING: Proposal count mismatch\nCategory: ${item.category}\nElement: ${item.element}\nProposals: ${proposalsList.length}\nLabels: ${labelsList.length}`);
+        }
+
+        labelsList.forEach((proposalLabels, index) => {
+            const radioName = `select_${item.category}_${item.element}`.replace(/\s+/g, '_');
+            
+            // 現在の選択状態 (ラジオボタンのチェック)
+            let isActive = false;
+            if (documentData.best_selection && 
+                documentData.best_selection[item.category] && 
+                documentData.best_selection[item.category][item.element] === index) {
+                isActive = true;
+            }
+            
+            // システムの推奨構成 (★マークの表示)
+            let isOptimized = false;
+            if (documentData.optimized_selection && 
+                documentData.optimized_selection[item.category] && 
+                documentData.optimized_selection[item.category][item.element] === index) {
+                isOptimized = true;
+            }
+            
+            // best_selectionがあればそれを使う。なければ初回はindex 0
+            const isChecked = documentData.best_selection ? (isActive ? 'checked' : '') : (index === 0 ? 'checked' : '');
+            
+            // ALWAYS use llm_suggestions for text if available, fallback to proposalLabels.text or item.text
+            const proposalText = (proposalsList[index] !== undefined) ? proposalsList[index] : (proposalLabels.text || item.text || "");
+
+            let rowHtml = `
+                <tr data-qubo-row="${item.category}|${item.element}|${index}">
+                    <td class="text-center">
+                        <input type="radio" name="${radioName}" ${isChecked} 
+                               class="evaluation-radio"
+                               data-category="${item.category}" 
+                               data-element="${item.element}" 
+                               data-index="${index}">
+                    </td>
+                    <td>${item.element}</td>
+                    <td>${index + 1}</td>
+                    <td><small>${proposalText}</small></td>
+            `;
+            
+            const currentValues = [];
+            orderedKeys.forEach(enKey => {
+                const labelSpec = labelsForClassification[enKey];
+                if (labelSpec) {
+                    const jaLabel = labelSpec.ja_label;
+                    const labelValue = proposalLabels[jaLabel];
+
+                    if (labelSpec.type === 'scalar') {
+                        const val = (labelValue !== undefined && labelValue !== null) ? labelValue : 0;
+                        currentValues.push(val);
+                        rowHtml += `<td data-label-en="${enKey}">${val}</td>`; // data-label-en を追加
+                    } else if (labelSpec.type === 'vector') {
+                        rowHtml += `<td data-label-en="${enKey}"><code>${(labelValue && labelValue.join(', ')) || '-'}</code></td>`;
+                    } else {
+                        rowHtml += `<td data-label-en="${enKey}">${(labelValue !== undefined && labelValue !== null) ? labelValue : '-'}</td>`;
+                    }
+                } else {
+                    rowHtml += `<td>-</td>`;
+                }
+            });
+
+            // Extra details block
+            let detailsHtml = '<div class="small mt-1">';
+            detailsHtml += `<div class="qubo-energy-val"><strong>適合ロス:</strong> ${proposalLabels.qubo_energy || '-'}</div>`;
+            detailsHtml += `<div><strong>構造整合度:</strong> ${proposalLabels.diff_score || '-'}</div>`;            detailsHtml += `<div class="qubo-optimal-badge mt-1" style="display:${isOptimized ? 'block' : 'none'};"><span class="badge bg-warning text-dark">★ 推奨構成</span></div>`;
+            detailsHtml += '</div>';
+
+            rowHtml += `<td>${detailsHtml}</td>`;
+            rowHtml += '</tr>';
+            tbody.insertAdjacentHTML('beforeend', rowHtml);
+
+            // Display sample to console for the first item of each element
+            if (index === 0) {
+                console.log(`Render Sample [${item.category} > ${item.element}]:`, {
+                    candidate_no: index + 1,
+                    text: proposalText.substring(0, 30) + (proposalText.length > 30 ? "..." : ""),
+                    labels: proposalLabels
+                });
+            }
+        });
+    }
+
+    async function runClassificationEvaluation(classificationFilter) {
+        // Disable all evaluation buttons
+        document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = true);
+        evaluationStatusDiv.innerHTML = `
+            <div class="alert alert-info d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-3" role="status"></div>
+                <span>評価前処理を実行中...</span>
+            </div>
+        `;
+        
+        // If specific category, clear ONLY that category's results
+        if (classificationFilter) {
+            const sectionId = `evaluation-results-section-${classificationFilter.replace(/\s+/g, '_')}`;
+            const existingSection = document.getElementById(sectionId);
+            if (existingSection) {
+                existingSection.querySelector('tbody').innerHTML = '';
+            }
+        } else {
+            // "Evaluate All" - clear the entire container to start fresh for all categories
+            evaluationResultsSectionsContainer.innerHTML = '';
+        }
+
+        let triggerUrl = `/document/${docId}/evaluate`;
+        let streamUrl = `/document/${docId}/evaluate/stream`;
+        if (classificationFilter) {
+            streamUrl += `?classification_filter=${encodeURIComponent(classificationFilter)}`;
+        }
+
+        try {
+            const response = await fetch(triggerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const result = await response.json();
+
+            if (result.status === 'error') {
+                showAlert(result.message, 'danger');
+                evaluationStatusDiv.innerHTML = '';
+                document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
+                return;
+            } else {
+                evaluationStatusDiv.innerHTML = `
+                    <div class="alert alert-info d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-3" role="status"></div>
+                        <span>評価処理を開始中。結果を待機しています...</span>
+                    </div>
+                `;
+            }
+
+            const eventSource = new EventSource(streamUrl.replace('POST', 'GET'));
+            
+            eventSource.onopen = () => {
+                console.log('SSE connection opened.');
+            };
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.error) {
+                    evaluationStatusDiv.innerHTML = `
+                        <div class="alert alert-danger d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill me-3"></i>
+                            <span>エラーが発生しました: ${data.error}</span>
+                        </div>
+                    `;
+                    eventSource.close();
+                    document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
+                    return;
+                }
+                
+                if (data.progress_current !== undefined && data.progress_total !== undefined) {
+                    const category = data.category_label || '処理中';
+                    const element = data.current_element || '...';
+                    evaluationStatusDiv.innerHTML = `
+                        <div class="alert alert-info d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-3" role="status"></div>
+                            <span>評価中: <strong>${category}</strong> - ${element} (${data.progress_current}/${data.progress_total})</span>
+                        </div>
+                    `;
+                } else if (data.semantic_label) {
+                    renderSemanticLabelItem(data.semantic_label);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('SSE error:', error);
+                evaluationStatusDiv.innerHTML = '<div class="alert alert-danger">評価中に通信エラーが発生しました。</div>';
+                eventSource.close();
+                document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
+            };
+
+            eventSource.addEventListener('end_stream', () => {
+                evaluationStatusDiv.innerHTML = '<div class="alert alert-success">評価が全て完了しました。</div>';
+                eventSource.close();
+                document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
+                updateEnergyBreakdown(); 
+            });
+
+        } catch (error) {
+            showAlert(`評価の開始に失敗しました: ${error.message}`, 'danger');
+            evaluationStatusDiv.innerHTML = '';
+            document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
+        }
+    }
+
+    function renderSingleCategorySuggestions(sectionId, categoryObj) {
+        const categorySection = document.getElementById(sectionId);
+        categorySection.innerHTML = "";
+
+        if (!categoryObj || !categoryObj.elements) {
+            const categoryLabel = categoryObj ? categoryObj.category : '不明な分類';
+            categorySection.innerHTML = `<h5>分類: ${categoryLabel}</h5><div class="alert alert-info mb-0">提案は見つかりませんでした。</div>`;
+            return;
+        }
+
+        let htmlContent = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">分類: ${categoryObj.category}</h5>
+                <button class="btn btn-success btn-sm save-category-btn" data-category="${categoryObj.category}">この分類を保存</button>
+            </div>
+            <div class="list-group">
+        `;
+
+        // document.composition_elements から現在のカテゴリの要素の順序とタイプを取得
+        let orderedElementsForCategory = [];
+        const currentCategoryFromDoc = documentData.composition_elements?.categories?.find(cat => cat.label === categoryObj.category);
+        if (currentCategoryFromDoc && currentCategoryFromDoc.elements) {
+            orderedElementsForCategory = currentCategoryFromDoc.elements;
+        } else {
+            // fallback: documentDataにカテゴリが見つからない場合は、LLMからの応答のキーをそのまま使う
+            orderedElementsForCategory = Object.keys(categoryObj.elements).map(label => ({label: label}));
+        }
+
+        orderedElementsForCategory.forEach(elementMeta => {
+            const elementName = elementMeta.label;
+            if (categoryObj.elements.hasOwnProperty(elementName)) {
+                const suggestionsForElement = categoryObj.elements[elementName];
+                htmlContent += `<h6 class="ms-1 mb-1 mt-2 small fw-bold">要素名: ${elementName}</h6>`;
+                
+                // If it's an array of suggestions, we'll join them or just take the first one?
+                // The current UI shows all. Let's make it a single editable area if multiple, or one textarea per suggestion?
+                // Request says "edit the generated elements". Usually LLM generates one definitive proposal per element in this step,
+                // but suggest_count might be > 1. Let's support editing all suggestions.
+                
+                if (Array.isArray(suggestionsForElement)) {
+                    suggestionsForElement.forEach((suggestion, idx) => {
+                        const textareaId = `edit-${categoryObj.category}-${elementName}-${idx}`.replace(/\s/g, '-');
+                        htmlContent += `
+                            <div class="mb-2">
+                                <textarea class="form-control form-control-sm suggestion-edit-area" 
+                                          id="${textareaId}" 
+                                          data-category="${categoryObj.category}" 
+                                          data-element="${elementName}" 
+                                          data-index="${idx}"
+                                          rows="3">${suggestion}</textarea>
+                            </div>
+                        `;
+                    });
+                } else {
+                    const textareaId = `edit-${categoryObj.category}-${elementName}-0`.replace(/\s/g, '-');
+                    htmlContent += `
+                        <div class="mb-2">
+                            <textarea class="form-control form-control-sm suggestion-edit-area" 
+                                      id="${textareaId}" 
+                                      data-category="${categoryObj.category}" 
+                                      data-element="${elementName}" 
+                                      data-index="0"
+                                      rows="3">${suggestionsForElement}</textarea>
+                        </div>
+                    `;
+                }
+            }
+        });
+        htmlContent += `</div>`;
+        categorySection.innerHTML = htmlContent;
+
+        // Add event listener for the save button
+        categorySection.querySelector('.save-category-btn').addEventListener('click', async (e) => {
+            const btn = e.target;
+            const categoryLabel = btn.dataset.category;
+            
+            // Collect updated values from textareas
+            const textareas = categorySection.querySelectorAll('.suggestion-edit-area');
+            const updatedElements = {};
+            
+            textareas.forEach(ta => {
+                const elemName = ta.dataset.element;
+                const idx = parseInt(ta.dataset.index);
+                const value = ta.value;
+                
+                if (!updatedElements[elemName]) {
+                    updatedElements[elemName] = [];
+                }
+                updatedElements[elemName][idx] = value;
+            });
+
+            // If an element only had one suggestion, convert array back to string if that was the original format?
+            // Actually, keep it as array to be safe, or match original. 
+            // The backend expects suggestions to be in documentData.llm_suggestions
+            
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            try {
+                const response = await fetch(`/document/${docId}/save_generated_category`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category: categoryLabel,
+                        elements: updatedElements
+                    })
+                });
+
+                if (response.ok) {
+                    showAlert(`${categoryLabel} の変更を保存しました。`, 'success');
+                    // Update local data
+                    const existingIndex = documentData.llm_suggestions.findIndex(s => s.category === categoryLabel);
+                    if (existingIndex > -1) {
+                        documentData.llm_suggestions[existingIndex].elements = updatedElements;
+                    }
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || '保存に失敗しました。');
+                }
+            } catch (err) {
+                showAlert(`エラー: ${err.message}`, 'danger');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'この分類を保存';
+            }
+        });
+    }
+
+    // --- Initial State ---
+    function initializeView() {
+        let hash = window.location.hash;
+        let tabToActivate;
+
+        if (hash) {
+            tabToActivate = document.querySelector('.nav-tabs button[data-bs-target="' + hash + '"]');
+        }
+
+        if (tabToActivate) {
+            new bootstrap.Tab(tabToActivate).show();
+        } else {
+            let defaultTab = document.getElementById('intent-tab');
+            if (defaultTab) {
+                new bootstrap.Tab(defaultTab).show();
+            }
+        }
+
+        // --- Handle existing generated data ---
+        const proposalsResultsDiv = document.getElementById('proposals-results');
+        const compositionResultsDiv = document.getElementById('composition-results');
+
+        if (documentData.selected_basic_elements && Object.keys(documentData.selected_basic_elements).length > 0) {
+            // Populate Step 2 fields from selected_basic_elements
+            const dynamicSelectionFieldsContainer = document.getElementById('dynamic-selection-fields');
+            for (const elemId in documentData.selected_basic_elements) {
+                const field = dynamicSelectionFieldsContainer.querySelector(`#selected-${elemId}`);
+                if (field) {
+                    field.value = documentData.selected_basic_elements[elemId];
+                }
+            }
+            showStep(2); // Show Step 2 if basic elements are selected
+            document.getElementById('document-title-heading').textContent = documentData.selected_basic_elements.title || documentData.title;
+
+            // If there are also existing LLM suggestions, render them
+            if (documentData.llm_suggestions && documentData.llm_suggestions.length > 0) {
+                // Find basic settings suggestions if they exist (handles both old and new names)
+                const basicSettingsSuggestions = documentData.llm_suggestions.find(s => s.category === "基本設定" || s.category === "基本項目");
+                if (basicSettingsSuggestions) {
+                    renderProposals([basicSettingsSuggestions]); // renderProposals expects an array of suggestions
+                    proposalsResultsDiv.style.display = 'block';
+                }
+
+                // Render other composition suggestions
+                const otherCompositionSuggestions = documentData.llm_suggestions.filter(s => s.category !== "基本設定" && s.category !== "基本項目");
+                if (otherCompositionSuggestions.length > 0) {
+                    compositionResultsDiv.innerHTML = ''; // Clear for re-rendering
+                    otherCompositionSuggestions.forEach(categoryObj => {
+                        const categorySectionId = `composition-for-${categoryObj.category.replace(/\s/g, '-')}`;
+                        compositionResultsDiv.innerHTML += `
+                            <div id="${categorySectionId}" class="card p-3 mb-2">
+                                <h5>分類: ${categoryObj.category}</h5>
+                                <div class="text-center my-2"></div>
+                            </div>
+                        `;
+                        renderSingleCategorySuggestions(categorySectionId, categoryObj);
+                    });
+                    compositionResultsDiv.style.display = 'block';
+                    showStep(3); // Show Step 3 if other compositions are present
+                }
+            }
+
+            if (documentData.llm_suggestions && documentData.llm_suggestions.length > 0) {
+                 // Check if any non-basic-setting suggestions exist
+                const hasOtherSuggestions = documentData.llm_suggestions.some(s => s.category !== "基本設定" && s.category !== "基本項目");
+                if (hasOtherSuggestions) {
+                    showStep(3); // If other suggestions exist, display step 3
+                }
+            }
+
+
+        } else if (documentData.llm_suggestions && documentData.llm_suggestions.length > 0) {
+            // If only LLM suggestions exist but no selected basic elements, try to render Step 1 proposals
+            const basicSettingsSuggestions = documentData.llm_suggestions.find(s => s.category === "基本設定" || s.category === "基本項目");
+            if (basicSettingsSuggestions) {
+                renderProposals([basicSettingsSuggestions]);
+                proposalsResultsDiv.style.display = 'block';
+                showStep(2); // Show Step 2 to allow selection/editing
+            }
+        } else {
+            // No existing generated data, start at Step 1
+            showStep(1);
+        }
+
+        const isCompositionDefined = documentData.composition_elements?.categories?.length > 0;
+
+        if (!isCompositionDefined) {
+            generateProposalsBtn.disabled = true;
+            generateCompositionBtn.disabled = true;
+            generateProposalsBtn.title = "構成要素を定義してから生成を開始してください。";
+            generateCompositionBtn.title = "構成要素を定義してから生成を開始してください。";
+        }
+        renderCategoryGenerationList(); // Add this line
+        renderEvaluationButtons(); // Render evaluation buttons on initialization
+        renderInitialSemanticLabels(); // NEW: Render existing evaluation results
+        updateEnergyBreakdown(); // NEW: Calculate initial energy breakdown
+
+        // Candidate Selection QUBO Optimize Button Logic
+        const quantumOptimizeBtn = document.getElementById('quantum-optimize-btn');
+        const qEnergyDisplay = document.getElementById('quantum-energy-display');
+        const qSolverBadge = document.getElementById('q-solver-badge');
+        const qSolverName = document.getElementById('q-solver-name');
+        const qTotalE = document.getElementById('q-total-e');
+        const qE1 = document.getElementById('q-e1');
+        const qE2 = document.getElementById('q-e2');
+
+        // NEW: Restore saved optimization results display
+        if (documentData.best_selection_energy) {
+            const bse = documentData.best_selection_energy;
+            qEnergyDisplay.style.display = 'block';
+            qTotalE.textContent = parseFloat(bse.total).toFixed(4);
+            qE1.textContent = parseFloat(bse.e1).toFixed(4);
+            qE2.textContent = parseFloat(bse.e2).toFixed(4);
+            if (qSolverName) {
+                qSolverName.textContent = bse.solver === 'fixstars' ? 'Fixstars Amplify' : 'Heuristic (Local)';
+            }
+            if (qSolverBadge) {
+                qSolverBadge.className = 'badge bg-secondary py-2 px-3 fs-6 fw-normal';
+            }
+        }
+
+        if (quantumOptimizeBtn) {
+            quantumOptimizeBtn.addEventListener('click', async () => {
+                // 評価ステータスとプログレスバーを非表示にする
+                evaluationStatusDiv.innerHTML = '';
+
+                quantumOptimizeBtn.disabled = true;
+                quantumOptimizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 最適化中...';
+
+                try {
+                    const response = await fetch(`/document/${docId}/quantum_optimize`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // 1. エネルギー表示の更新
+                        qEnergyDisplay.style.display = 'block';
+                        qTotalE.textContent = data.total_energy.toFixed(4);
+                        qE1.textContent = data.e1.toFixed(4);
+                        qE2.textContent = data.e2.toFixed(4);
+                        
+                        // ソルバー情報の更新
+                        if (qSolverName) {
+                            qSolverName.textContent = data.solver === 'fixstars' ? 'Fixstars Amplify' : 'Heuristic (Local)';
+                        }
+                        if (qSolverBadge) {
+                            qSolverBadge.className = data.solver === 'fixstars' ? 'badge bg-primary' : 'badge bg-dark';
+                        }
+
+                        // 2. ラジオボタンとバッジの更新
+                        const bestSelection = data.best_selection;
+                        
+                        // 全バッジを一旦非表示
+                        document.querySelectorAll('.qubo-optimal-badge').forEach(b => b.style.display = 'none');
+
+                        // 階層構造 (category -> element -> cand_idx) を回して反映
+                        for (const cat in bestSelection) {
+                            for (const el in bestSelection[cat]) {
+                                const candIdx = bestSelection[cat][el];
+                                
+                                // data-qubo-row で行を特定
+                                const rowSelector = `tr[data-qubo-row="${cat}|${el}|${candIdx}"]`;
+                                const row = document.querySelector(rowSelector);
+                                
+                                if (row) {
+                                    // ラジオボタンをチェック
+                                    const radio = row.querySelector('input[type="radio"]');
+                                    if (radio) radio.checked = true;
+                                    
+                                    // バッジを表示
+                                    const badge = row.querySelector('.qubo-optimal-badge');
+                                    if (badge) badge.style.display = 'block';
+                                }
+                            }
+                        }
+
+                        // 3. エネルギー分解（一次項・二次項）表示を更新（ラジオボタン変更イベントをトリガー）
+                        updateEnergyBreakdown();
+
+                        showAlert('組み合わせ最適化が完了しました。', 'success');
+                    } else {
+                        throw new Error(data.error || '最適化に失敗しました。');
+                    }
+                } catch (error) {
+                    alert('エラー: ' + error.message);
+                } finally {
+                    quantumOptimizeBtn.disabled = false;
+                    quantumOptimizeBtn.textContent = '組み合わせ最適化';
+                }
+            });
+        }
+
+    }
+
+    if (calculateFitBtnV2) {
+        calculateFitBtnV2.addEventListener('click', async () => {
+            calculateFitBtnV2.disabled = true;
+            fitProgressContainer.style.display = 'block';
+            fitProgressBar.style.width = '0%';
+            fitProgressBar.textContent = '0%';
+            fitStatusMessage.textContent = '初期化中...';
+            fitResultsContainer.style.display = 'none';
+
+            const eventSource = new EventSource(`/document/${docId}/calculate_fit_stream`);
+
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+
+                if (data.error) {
+                    showAlert(data.message || data.error, 'danger');
+                    eventSource.close();
+                    calculateFitBtnV2.disabled = false;
+                    fitProgressContainer.style.display = 'none';
+                    return;
+                }
+
+                if (data.progress !== undefined) {
+                    fitProgressBar.style.width = `${data.progress}%`;
+                    fitProgressBar.textContent = `${data.progress}%`;
+                    fitStatusMessage.textContent = data.message;
+                }
+
+                if (data.complete) {
+                    renderFitResultsV2(data.fit_results);
+                    fitResultsContainer.style.display = 'block';
+                    fitProgressContainer.style.display = 'none';
+                    calculateFitBtnV2.disabled = false;
+                    showAlert('適合度の計算が完了しました。', 'success');
+                    eventSource.close();
+                }
+            };
+
+            eventSource.onerror = function(err) {
+                console.error("EventSource failed:", err);
+                showAlert('適合度計算中に通信エラーが発生しました。', 'danger');
+                eventSource.close();
+                calculateFitBtnV2.disabled = false;
+                fitProgressContainer.style.display = 'none';
+            };
+        });
+    }
+
+    // --- 下書き・原稿管理 (Draft & Manuscript Management) ---
+
+    const selectChapter = document.getElementById('select-chapter');
+    const selectScene = document.getElementById('select-scene');
+    const sceneSelectContainer = document.getElementById('scene-select-container');
+    const targetChapterRadio = document.getElementById('target-chapter');
+    const targetSceneRadio = document.getElementById('target-scene');
+    const btnGenerateDraft = document.getElementById('btn-generate-draft');
+    const draftGenLoading = document.getElementById('draft-gen-loading');
+    const draftListBody = document.getElementById('draft-list-body');
+    const manuscriptEditor = document.getElementById('manuscript-editor');
+    const btnSaveManuscript = document.getElementById('btn-save-manuscript');
+    const btnFinalizeManuscript = document.getElementById('btn-finalize-manuscript');
+    const manuscriptStatus = document.getElementById('manuscript-status');
+
+    const btnReflectEvaluation = document.getElementById('btn-reflect-evaluation');
+    const cbLockStructure = document.getElementById('cb-lock-structure');
+    const dynamicContainer = document.getElementById('dynamic-draft-elements-container');
+
+    let manuscriptData = { chapters: [] };
+    let currentStructureSnapshot = null;
+
+    // 評価結果の反映 (動的生成)
+    const loadCurrentStructure = async () => {
+        btnReflectEvaluation.disabled = true;
+        btnReflectEvaluation.textContent = '取得中...';
+
+        try {
+            const response = await fetch(`/api/evaluation/current_structure?doc_id=${docId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                currentStructureSnapshot = data.structure;
+                renderDynamicElements(data.structure);
+                showAlert('評価タブの最新選択内容を反映しました。', 'success');
+            } else {
+                showAlert('反映失敗: ' + (data.error || 'データがありません'), 'warning');
+            }
+        } catch (e) {
+            console.error(e);
+            showAlert('通信エラーが発生しました。', 'danger');
+        } finally {
+            btnReflectEvaluation.disabled = false;
+            btnReflectEvaluation.textContent = '評価結果から最新化';
+        }
+    };
+
+    // --- 下書き設定の自動保存 (Auto-save Drafting) ---
+    let autoSaveDraftingTimeout;
+
+    const triggerAutoSaveDrafting = () => {
+        clearTimeout(autoSaveDraftingTimeout);
+        autoSaveDraftingTimeout = setTimeout(() => {
+            saveDraftingConfigs(true);
+        }, 2000); // 2秒デバウンス
+    };
+
+    // 追加設定フィールドにリスナーを追加
+    const draftingInputSelectors = [
+        '#draft-location', '#draft-time', '#draft-weather', 
+        '#draft-viewpoint', '#draft-style', '#draft-length', 
+        '#draft-additional-info'
+    ];
+    draftingInputSelectors.forEach(selector => {
+        const el = document.querySelector(selector);
+        if (el) {
+            el.addEventListener('input', triggerAutoSaveDrafting);
+            el.addEventListener('change', triggerAutoSaveDrafting);
+        }
+    });
+
+    // 動的要素（設計図）へのリスナー追加は、生成・更新時にも行う必要がある
+    const attachDraftingElementListeners = () => {
+        document.querySelectorAll('.element-use-check, .draft-element-textarea').forEach(el => {
+            // 重複登録を避けるため一度削除
+            el.removeEventListener('input', triggerAutoSaveDrafting);
+            el.removeEventListener('change', triggerAutoSaveDrafting);
+            
+            el.addEventListener('input', triggerAutoSaveDrafting);
+            el.addEventListener('change', triggerAutoSaveDrafting);
+        });
+    };
+
+    const renderDynamicElements = (orderedStructure) => {
+        dynamicContainer.innerHTML = '';
+        
+        orderedStructure.forEach(catObj => {
+            const category = catObj.category;
+            const elements = catObj.elements;
+
+            const catCard = document.createElement('div');
+            catCard.className = 'card mb-4 border-0 shadow-sm';
+            catCard.style.backgroundColor = '#2c2c2c';
+            
+            let elementsHtml = '';
+            elements.forEach(elObj => {
+                const element = elObj.label;
+                const text = elObj.text;
+                const elementId = `draft-input-${category}-${element}`.replace(/\s+/g, '_');
+                const checkboxId = `draft-check-${category}-${element}`.replace(/\s+/g, '_');
+                
+                elementsHtml += `
+                    <div class="mb-3 p-3 rounded" style="background-color: #1e1e1e; border: 1px solid #3d3d3d;">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input element-use-check" type="checkbox" id="${checkboxId}" checked data-category="${category}" data-element="${element}">
+                            <label class="form-check-label small fw-bold text-info" for="${checkboxId}">${element}</label>
+                        </div>
+                        <textarea id="${elementId}" class="form-control form-control-sm draft-element-textarea" 
+                                  style="font-size: 0.9rem; color: #fff !important; background-color: #121212 !important; border: 1px solid #444 !important; line-height: 1.6;" 
+                                  rows="3">${text}</textarea>
+                    </div>
+                `;
+            });
+
+            catCard.innerHTML = `
+                <div class="card-header bg-dark text-white-50 border-bottom border-secondary py-2">
+                    <h4 class="h6 mb-0 small uppercase letter-spacing-1">${category}</h4>
+                </div>
+                <div class="card-body p-3">
+                    ${elementsHtml}
+                </div>
+            `;
+            dynamicContainer.appendChild(catCard);
+        });
+
+        // 動的要素にリスナーをアタッチ
+        attachDraftingElementListeners();
+
+        // ロック状態を反映
+        applyLockState();
+    };
+
+    const applyLockState = () => {
+        const isLocked = cbLockStructure.checked;
+        const textareas = document.querySelectorAll('.draft-element-textarea');
+        const checkboxes = document.querySelectorAll('.element-use-check');
+        
+        textareas.forEach(el => {
+            el.readOnly = isLocked;
+            if (isLocked) {
+                // 固定時: やや明るい黒背景、文字はグレー白
+                el.style.setProperty('background-color', '#2c2c2c', 'important');
+                el.style.setProperty('color', '#aaa', 'important');
+                el.style.cursor = 'not-allowed';
+            } else {
+                // 通常時: 黒背景、文字は白
+                el.style.setProperty('background-color', '#121212', 'important');
+                el.style.setProperty('color', '#fff', 'important');
+                el.style.cursor = 'auto';
+            }
+        });
+        checkboxes.forEach(el => el.disabled = isLocked);
+    };
+
+    btnReflectEvaluation.addEventListener('click', loadCurrentStructure);
+    cbLockStructure.addEventListener('change', applyLockState);
+
+    // 全部選択・全部外す
+    document.getElementById('btn-check-all')?.addEventListener('click', () => {
+        if (cbLockStructure.checked) return;
+        document.querySelectorAll('.element-use-check').forEach(cb => cb.checked = true);
+    });
+    document.getElementById('btn-uncheck-all')?.addEventListener('click', () => {
+        if (cbLockStructure.checked) return;
+        document.querySelectorAll('.element-use-check').forEach(cb => cb.checked = false);
+    });
+
+    // 対象切り替え (章 vs シーン)
+    const toggleTarget = () => {
+        if (targetSceneRadio.checked) {
+            sceneSelectContainer.style.display = 'block';
+            updateSceneDropdown();
+        } else {
+            sceneSelectContainer.style.display = 'none';
+        }
+    };
+
+    targetChapterRadio.addEventListener('change', toggleTarget);
+    targetSceneRadio.addEventListener('change', toggleTarget);
+
+    const updateSceneDropdown = () => {
+        const chapterId = selectChapter.value;
+        const chapter = manuscriptData.chapters.find(c => c.chapter_id === chapterId);
+        selectScene.innerHTML = '';
+        if (chapter && chapter.scenes) {
+            chapter.scenes.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.scene_id;
+                opt.textContent = `${s.order}. ${s.title}`;
+                selectScene.appendChild(opt);
+            });
+        }
+    };
+
+    selectChapter.addEventListener('change', () => {
+        if (targetSceneRadio.checked) updateSceneDropdown();
+    });
+
+    // 一覧の読み込み
+    const loadDraftList = async () => {
+        try {
+            const response = await fetch(`/api/draft/list?doc_id=${docId}`);
+            const data = await response.json();
+            if (data.success) {
+                manuscriptData = data.manuscript;
+                renderDraftList();
+                updateChapterDropdown();
+
+                // 保存された設定があれば復元
+                if (data.drafting_configs) {
+                    const configs = data.drafting_configs;
+                    if (configs.story_blueprint) {
+                        renderDynamicElements(configs.story_blueprint);
+                        // チェック状態の復元
+                        configs.story_blueprint.forEach(catObj => {
+                            catObj.elements.forEach(elObj => {
+                                const checkboxId = `draft-check-${catObj.category}-${elObj.label}`.replace(/\s+/g, '_');
+                                const cb = document.getElementById(checkboxId);
+                                if (cb) cb.checked = elObj.checked !== false; // デフォルトはtrue
+                            });
+                        });
+                    }
+                    if (configs.directing_settings) {
+                        const ds = configs.directing_settings;
+                        if (document.getElementById('draft-location')) document.getElementById('draft-location').value = ds.location || '';
+                        if (document.getElementById('draft-time')) document.getElementById('draft-time').value = ds.time || '';
+                        if (document.getElementById('draft-weather')) document.getElementById('draft-weather').value = ds.weather || '';
+                        if (document.getElementById('draft-viewpoint')) document.getElementById('draft-viewpoint').value = ds.viewpoint || '';
+                        if (document.getElementById('draft-style')) document.getElementById('draft-style').value = ds.style || '';
+                        if (document.getElementById('draft-length')) document.getElementById('draft-length').value = ds.length || '';
+                        if (document.getElementById('draft-additional-info')) document.getElementById('draft-additional-info').value = ds.instructions || '';
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load draft list:", e);
+        }
+    };
+
+    const updateChapterDropdown = () => {
+        const currentVal = selectChapter.value;
+        selectChapter.innerHTML = '';
+        if (manuscriptData && manuscriptData.chapters) {
+            manuscriptData.chapters.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.chapter_id;
+                opt.textContent = `${c.order}. ${c.title}`;
+                selectChapter.appendChild(opt);
+            });
+        }
+        if (currentVal) selectChapter.value = currentVal;
+        if (targetSceneRadio.checked) updateSceneDropdown();
+    };
+
+    const renderDraftList = () => {
+        draftListBody.innerHTML = '';
+        let hasDrafts = false;
+
+        if (manuscriptData && manuscriptData.chapters) {
+            manuscriptData.chapters.forEach(chap => {
+                // 章レベルのドラフト
+                chap.chapter_level_drafts?.forEach(d => {
+                    hasDrafts = true;
+                    appendDraftRow(d, chap.title, chap.chapter_id, null);
+                });
+
+                // シーンレベルのドラフト
+                chap.scenes?.forEach(scene => {
+                    scene.drafts?.forEach(d => {
+                        hasDrafts = true;
+                        appendDraftRow(d, `${chap.title} > ${scene.title}`, chap.chapter_id, scene.scene_id);
+                    });
+                });
+            });
+        }
+
+        if (!hasDrafts) {
+            draftListBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">まだ原稿案が生成されていません。</td></tr>';
+        }
+    };
+
+    const appendDraftRow = (draft, locationName, chapId, sceneId) => {
+        let dateStr = '不明';
+        if (draft.created_at) {
+            const date = new Date(draft.created_at);
+            // 有効な日付かチェック
+            if (!isNaN(date.getTime())) {
+                dateStr = date.toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else if (typeof draft.created_at === 'string' && draft.created_at.length > 10) {
+                // ISO形式っぽいがパースに失敗した場合は先頭10文字(日付分)を試す
+                const shortDate = draft.created_at.substring(0, 10);
+                if (shortDate.includes('-')) dateStr = shortDate;
+            }
+        }
+        
+        const preview = draft.content ? draft.content.substring(0, 60) + '...' : '(本文なし)';
+        
+        const tr = document.createElement('tr');
+        tr.className = "border-secondary";
+        tr.innerHTML = `
+            <td><span class="text-secondary small">${dateStr}</span></td>
+            <td><span class="badge bg-secondary opacity-75 p-2">${locationName}</span></td>
+            <td class="text-muted" style="max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${preview}</td>
+            <td class="text-end">
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-outline-info btn-icon-square" title="編集" onclick="openDraft('${chapId}', '${sceneId || ''}', '${draft.draft_id}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-icon-square" title="削除" onclick="deleteDraft('${draft.draft_id}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        draftListBody.appendChild(tr);
+    };
+
+    // 原稿案の削除
+    window.deleteDraft = async (draftId) => {
+        if (!confirm('この原稿案を削除してもよろしいですか？')) return;
+
+        try {
+            const response = await fetch('/api/draft/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ doc_id: docId, draft_id: draftId })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert('原稿案を削除しました。', 'success');
+                loadDraftList(); // リスト再読み込み
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e) {
+            showAlert('削除に失敗しました: ' + e.message, 'danger');
+        }
+    };
+
+    // グローバル関数として公開 (HTMLから呼ぶため)
+    window.openDraft = async (chapId, sceneId, draftId) => {
+        try {
+            const url = sceneId 
+                ? `/api/draft/get?doc_id=${docId}&chapter_id=${chapId}&scene_id=${sceneId}`
+                : `/api/draft/get?doc_id=${docId}&chapter_id=${chapId}`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                const target = data.scene || data.chapter;
+                const drafts = data.scene ? target.drafts : target.chapter_level_drafts;
+                const draft = drafts.find(d => d.draft_id === draftId);
+                
+                if (draft) {
+                    manuscriptEditor.value = draft.content;
+                    // タブを切り替え
+                    const manuscriptTab = new bootstrap.Tab(document.getElementById('manuscript-tab'));
+                    manuscriptTab.show();
+                    showAlert('原稿案をエディタに読み込みました。', 'success');
+                }
+            }
+        } catch (e) {
+            showAlert('原稿の読み込みに失敗しました。', 'danger');
+        }
+    };
+
+    // 下書き設定の保存
+    const saveDraftingConfigs = async (silent = false) => {
+        const blueprint = [];
+        // 動的な設計図要素を収集
+        const catSections = dynamicContainer.querySelectorAll('.card');
+        catSections.forEach(section => {
+            const category = section.querySelector('.card-header h4').textContent;
+            const elements = [];
+            section.querySelectorAll('.mb-3.p-3').forEach(elDiv => {
+                const checkbox = elDiv.querySelector('.element-use-check');
+                const label = elDiv.querySelector('label').textContent;
+                const textarea = elDiv.querySelector('textarea');
+                elements.push({
+                    label: label,
+                    text: textarea.value,
+                    checked: checkbox.checked
+                });
+            });
+            blueprint.push({
+                category: category,
+                elements: elements
+            });
+        });
+
+        const directingSettings = {
+            location: document.getElementById('draft-location').value,
+            time: document.getElementById('draft-time').value,
+            weather: document.getElementById('draft-weather').value,
+            viewpoint: document.getElementById('draft-viewpoint').value,
+            style: document.getElementById('draft-style').value,
+            length: document.getElementById('draft-length').value,
+            instructions: document.getElementById('draft-additional-info').value
+        };
+
+        try {
+            const response = await fetch('/api/draft/save_configs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    doc_id: docId,
+                    story_blueprint: blueprint,
+                    directing_settings: directingSettings
+                })
+            });
+            const data = await response.json();
+            if (data.success && !silent) {
+                showAlert('下書きの設定を保存しました。', 'success');
+            }
+        } catch (e) {
+            console.error("Failed to save drafting configs:", e);
+            if (!silent) showAlert('設定の保存に失敗しました。', 'danger');
+        }
+    };
+
+    document.getElementById('btn-save-draft-configs')?.addEventListener('click', () => saveDraftingConfigs());
+
+    let promptModalObj = null;
+
+    // ドラフト生成 (評価結果からの開始)
+    btnGenerateDraft.addEventListener('click', async () => {
+        if (btnGenerateDraft.disabled) return;
+
+        const mode = document.querySelector('input[name="draft_mode"]:checked').value;
+        const targetType = targetChapterRadio.checked ? 'chapter' : 'scene';
+        const chapterId = selectChapter.value;
+        const sceneId = selectScene.value;
+
+        if (!chapterId) {
+            showAlert('章を選択してください。構成がない場合は「構成要素」タブで作成してください。', 'warning');
+            return;
+        }
+
+        if (targetType === 'scene' && !sceneId) {
+            showAlert('シーンを選択してください。', 'warning');
+            return;
+        }
+
+        // 現在の入力を保存 (サーバーとの同期)
+        await saveDraftingConfigs(true);
+
+        // チェックされた要素のみを収集
+        const selectedElements = [];
+        document.querySelectorAll('.element-use-check:checked').forEach(cb => {
+            const cat = cb.dataset.category;
+            const el = cb.dataset.element;
+            const elementId = `draft-input-${cat}-${el}`.replace(/\s+/g, '_');
+            const textarea = document.getElementById(elementId);
+            if (textarea) {
+                selectedElements.push({
+                    category: cat,
+                    element: el,
+                    text: textarea.value
+                });
+            }
+        });
+
+        if (selectedElements.length === 0) {
+            showAlert('構成要素が一つも選択されていません。反映後にチェックを入れてください。', 'warning');
+            return;
+        }
+
+        const additionalInfo = {
+            location: document.getElementById('draft-location').value,
+            time: document.getElementById('draft-time').value,
+            weather: document.getElementById('draft-weather').value,
+            viewpoint: document.getElementById('draft-viewpoint').value,
+            style: document.getElementById('draft-style').value,
+            length: document.getElementById('draft-length').value,
+            instructions: document.getElementById('draft-additional-info').value
+        };
+
+        btnGenerateDraft.disabled = true;
+        btnGenerateDraft.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 生成中...';
+        draftGenLoading.style.display = 'block';
+
+        try {
+            const response = await fetch('/api/draft/start_from_evaluation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    doc_id: docId,
+                    selected_elements: selectedElements,
+                    additional_info: additionalInfo,
+                    mode: mode,
+                    target_type: targetType,
+                    chapter_id: chapterId,
+                    scene_id: sceneId
+                })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                if (data.mode === 'prompt_only') {
+                    // プロンプト表示モーダル
+                    document.getElementById('prompt-display-area').value = data.prompt;
+                    if (!promptModalObj) {
+                        promptModalObj = new bootstrap.Modal(document.getElementById('promptModal'));
+                    }
+                    promptModalObj.show();
+                } else if (data.mode === 'generate') {
+                    // 原稿タブへ遷移
+                    manuscriptEditor.value = data.content;
+                    const manuscriptTab = new bootstrap.Tab(document.getElementById('manuscript-tab'));
+                    manuscriptTab.show();
+                    showAlert('原稿案を生成し、エディタに読み込みました。', 'success');
+                    loadDraftList(); // リスト更新
+                }
+            } else {
+                throw new Error(data.error || '不明なエラーが発生しました。');
+            }
+        } catch (e) {
+            console.error(e);
+            showAlert('エラー: ' + e.message, 'danger');
+        } finally {
+            btnGenerateDraft.disabled = false;
+            btnGenerateDraft.innerHTML = '<i class="bi bi-pencil-square"></i> 下書きを作成する';
+            draftGenLoading.style.display = 'none';
+        }
+    });
+
+    // プロンプトコピー機能
+    document.getElementById('btn-copy-prompt').addEventListener('click', () => {
+        const area = document.getElementById('prompt-display-area');
+        area.select();
+        document.execCommand('copy');
+        showAlert('プロンプトをクリップボードにコピーしました。', 'success');
+    });
+
+    // 章/シーン追加・編集 (画面内フォーム)
+    const btnAddStructure = document.getElementById('btn-add-structure');
+    const btnEditStructure = document.getElementById('btn-edit-structure');
+    const btnDeleteStructure = document.getElementById('btn-delete-structure');
+    const addStructureForm = document.getElementById('add-structure-form-container');
+    const addStructureTitleInput = document.getElementById('add-structure-title');
+    const editStructureIdInput = document.getElementById('edit-structure-id');
+    const addStructureLabel = document.getElementById('add-structure-label');
+    const btnSaveNewStructure = document.getElementById('btn-save-new-structure');
+    const btnCancelAddStructure = document.getElementById('btn-cancel-add-structure');
+
+    btnAddStructure.addEventListener('click', () => {
+        const isScene = targetSceneRadio.checked;
+        const typeStr = isScene ? 'シーン' : '章';
+        addStructureLabel.textContent = `新しい${typeStr}のタイトル`;
+        addStructureTitleInput.value = `新しい${typeStr}`;
+        editStructureIdInput.value = 'new';
+        addStructureForm.style.display = 'block';
+        addStructureTitleInput.focus();
+        addStructureTitleInput.select();
+    });
+
+    btnEditStructure.addEventListener('click', () => {
+        const isScene = targetSceneRadio.checked;
+        const typeStr = isScene ? 'シーン' : '章';
+        const id = isScene ? selectScene.value : selectChapter.value;
+        const title = isScene ? 
+            selectScene.options[selectScene.selectedIndex]?.text.replace(/^\d+\.\s+/, '') : 
+            selectChapter.options[selectChapter.selectedIndex]?.text.replace(/^\d+\.\s+/, '');
+
+        if (!id) {
+            showAlert(`編集する${typeStr}が選択されていません。`, 'warning');
+            return;
+        }
+
+        addStructureLabel.textContent = `${typeStr}のタイトルを編集`;
+        addStructureTitleInput.value = title || '';
+        editStructureIdInput.value = id;
+        addStructureForm.style.display = 'block';
+        addStructureTitleInput.focus();
+        addStructureTitleInput.select();
+    });
+
+    btnDeleteStructure.addEventListener('click', async () => {
+        const isScene = targetSceneRadio.checked;
+        const typeStr = isScene ? 'シーン' : '章';
+        const chapterId = selectChapter.value;
+        const sceneId = isScene ? selectScene.value : null;
+        const id = isScene ? sceneId : chapterId;
+
+        if (!id) {
+            showAlert(`削除する${typeStr}が選択されていません。`, 'warning');
+            return;
+        }
+
+        if (!confirm(`この${typeStr}を削除してもよろしいですか？（含まれる下書きも全て削除されます）`)) return;
+
+        try {
+            const body = { doc_id: docId };
+            if (isScene) {
+                body.chapter_id = chapterId;
+                body.scene_id = sceneId;
+            } else {
+                body.chapter_id = chapterId;
+            }
+
+            const response = await fetch('/api/draft/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert(`${typeStr}を削除しました。`, 'success');
+                await loadDraftList();
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e) {
+            showAlert(`${typeStr}の削除に失敗しました: ` + e.message, 'danger');
+        }
+    });
+
+    btnCancelAddStructure.addEventListener('click', () => {
+        addStructureForm.style.display = 'none';
+    });
+
+    btnSaveNewStructure.addEventListener('click', async () => {
+        const isScene = targetSceneRadio.checked;
+        const currentChapId = selectChapter.value;
+        const editId = editStructureIdInput.value;
+        const title = addStructureTitleInput.value.trim();
+        const typeStr = isScene ? 'シーン' : '章';
+        
+        if (!title) {
+            showAlert('タイトルを入力してください。', 'warning');
+            return;
+        }
+
+        try {
+            const body = { doc_id: docId, title: title };
+            if (isScene) {
+                if (!currentChapId) {
+                    showAlert('章が選択されていません。', 'warning');
+                    return;
+                }
+                body.chapter_id = currentChapId;
+                body.scene_id = editId; // 'new' or existing sceneId
+            } else {
+                body.chapter_id = editId; // 'new' or existing chapterId
+            }
+            
+            const response = await fetch('/api/draft/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert(`${typeStr}を保存しました。`, 'success');
+                addStructureForm.style.display = 'none';
+                await loadDraftList();
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e) {
+            showAlert(`${typeStr}の保存に失敗しました。`, 'danger');
+        }
+    });
+
+    // 原稿保存
+    btnSaveManuscript.addEventListener('click', async () => {
+        const content = manuscriptEditor.value;
+        if (!content) {
+            showAlert('保存する内容がありません。', 'warning');
+            return;
+        }
+
+        // 推敲として保存する (APIの拡張があれば content も保存可能だが、今回は metadata の update を叩くデモ)
+        // 本来は manuscript 本文を保存する専用の API が望ましいが、要件の POST /api/draft/update を利用
+        try {
+            const response = await fetch('/api/draft/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    doc_id: docId,
+                    manuscript_content: content // API側での受け取りが必要
+                })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showAlert('原稿を保存しました。', 'success');
+            }
+        } catch (e) {
+            showAlert('保存に失敗しました。', 'danger');
+        }
+    });
+
+    // 原稿ダウンロード
+    const btnDownloadManuscript = document.getElementById('btn-download-manuscript');
+    if (btnDownloadManuscript) {
+        btnDownloadManuscript.addEventListener('click', async () => {
+            const content = manuscriptEditor.value;
+            if (!content) {
+                showAlert('ダウンロードする原稿がありません。', 'warning');
+                return;
+            }
+
+            const title = documentData.title || 'manuscript';
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = `${title}_${dateStr}.txt`;
+
+            // 保存先を選択するダイアログを表示（対応ブラウザのみ）
+            if ('showSaveFilePicker' in window) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: filename,
+                        types: [{
+                            description: 'テキストファイル',
+                            accept: {'text/plain': ['.txt']},
+                        }],
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    showAlert('原稿を保存しました。', 'success');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                    console.error('File Picker Error:', err);
+                    // エラー時はフォールバックへ
+                }
+            }
+
+            // 従来のダウンロード方式（フォールバック）
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            showAlert('原稿をダウンロードしました（ブラウザの既定フォルダ）。', 'success');
+        });
+    }
+
+    btnFinalizeManuscript.addEventListener('click', () => {
+        manuscriptStatus.textContent = '完成';
+        manuscriptStatus.className = 'badge bg-success';
+        showAlert('おめでとうございます！物語が完成稿になりました。', 'success');
+    });
+
+    // 初期化時にリスト読み込み
+    loadDraftList();
+
+        initializeView();
+});
+</script>
+
+<style>
+/* 根本解決: モーダル表示中は背景のカードが動かないようにする */
+body.modal-open .card {
+    transform: none !important;
+    transition: none !important;
+}
+
+/* モーダル自体の安定化 */
+#promptModal .modal-content {
+    border: 1px solid #555;
+    box-shadow: 0 0 40px rgba(0,0,0,1) !important;
+    transform: none !important;
+}
+
+/* テキストエリアの微調整 */
+#prompt-display-area {
+    background-color: #000 !important;
+    color: #00ff00 !important; /* 端末風の緑色 */
+    border: 1px solid #333 !important;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+</style>
+
+<!-- プロンプト表示用モーダル (カードの外に配置) -->
+<div class="modal fade" id="promptModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary shadow-lg">
+            <div class="modal-header border-secondary bg-black">
+                <h5 class="modal-title text-warning"><i class="bi bi-terminal me-2"></i>生成された執筆プロンプト</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4" style="background-color: #1a1a1a;">
+                <p class="small text-secondary mb-3">
+                    <i class="bi bi-info-circle me-1"></i> 以下の内容をコピーして、AIに貼り付けてください。
+                </p>
+                <textarea id="prompt-display-area" class="form-control mb-3" rows="15" readonly 
+                          style="resize: none;"></textarea>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div id="copy-status-msg" class="text-success small fw-bold" style="display: none;">
+                        <i class="bi bi-check-lg"></i> クリップボードに保存しました
+                    </div>
+                    <button id="btn-copy-prompt" class="btn btn-warning px-5 fw-bold shadow">
+                        <i class="bi bi-clipboard me-1"></i> プロンプトをコピー
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// コピー機能の再定義
+document.addEventListener('DOMContentLoaded', function() {
+    const copyBtn = document.getElementById('btn-copy-prompt');
+    const displayArea = document.getElementById('prompt-display-area');
+    const statusMsg = document.getElementById('copy-status-msg');
+
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const text = displayArea.value;
+            
+            try {
+                // モダンなコピーAPI
+                await navigator.clipboard.writeText(text);
+                
+                // フィードバック
+                statusMsg.style.display = 'block';
+                copyBtn.classList.replace('btn-warning', 'btn-success');
+                copyBtn.innerHTML = '<i class="bi bi-check-lg"></i> コピー完了';
+                
+                setTimeout(() => {
+                    statusMsg.style.display = 'none';
+                    copyBtn.classList.replace('btn-success', 'btn-warning');
+                    copyBtn.innerHTML = '<i class="bi bi-clipboard me-1"></i> プロンプトをコピー';
+                }, 2000);
+                
+            } catch (err) {
+                displayArea.select();
+                document.execCommand('copy');
+                alert('コピーしました');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+    

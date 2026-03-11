@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container my-5">
+    <div class="card shadow-lg border-0 bg-dark text-white">
+        <div class="card-header bg-primary text-white py-3">
+            <h2 class="h4 mb-0"><i class="bi bi-google me-2"></i>Google Gemini APIキー取得ガイド</h2>
+        </div>
+        <div class="card-body p-4">
+            <p class="lead">Google Gemini APIキーを取得して、本システムの「構成要素生成」や「評価」機能を利用するための手順です。</p>
+            
+            <div class="alert alert-info border-0 shadow-sm">
+                <i class="bi bi-info-circle-fill me-2"></i> <strong>ヒント:</strong> Gemini APIは個人利用の範囲内であれば、現在無料で利用できる枠（Free Tier）が提供されています。
+            </div>
+
+            <div class="mt-5">
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 1: Google AI Studio にアクセス</h3>
+                        <p>まず、APIキーを管理するための専用サイト「Google AI Studio」にアクセスします。</p>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-outline-info btn-sm">
+                            Google AI Studio を開く <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                        <p class="small text-muted mt-2">※Googleアカウントでのログインが必要です。</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/googleAIStudioLogIn.png" alt="Google AI Studio ログイン画面" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 2: 「APIキーを作成」をクリック</h3>
+                        <p>左上のメニューから「Gen API Key」を選び、画面の右上または中央にある <strong>「APIキーを作成」</strong> ボタンをクリックします。</p>
+                        <p>新しいプロジェクトで作成するか、既存のGoogle Cloudプロジェクトを選択する画面が出る場合があります。初めての場合は「Create API key in new project」を選択してください。</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/googleAIStudioAPIKey.png" alt="Google AI Studio APIキー作成ボタンの場所" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 3: 「キーを作成」をクリック</h3>
+                        <p>生成された英数字の長い文字列があなたのAPIキーです。</p>
+                        <p><strong>「Copy」</strong> ボタンを押してクリップボードに保存してください。このキーは他人に教えないように大切に保管してください。</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <img src="/static/googleAIStudioAPIKeyCreate.png" alt="Google AI Studio キーのコピー画面" class="img-fluid rounded shadow-sm border border-secondary">
+                    </div>
+                </div>
+
+                <hr class="border-secondary my-4">
+
+                <div class="row mb-5 align-items-center">
+                    <div class="col-md-7">
+                        <h3 class="h5 fw-bold text-info">STEP 4: 本システムに貼り付け</h3>
+                        <p>本システムのダッシュボードに戻り、「API キー」の欄にコピーしたキーを貼り付けて <strong>「全サーバー設定を保存」</strong> をクリックすれば完了です！</p>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <button onclick="window.close();" class="btn btn-secondary px-5">このウィンドウを閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

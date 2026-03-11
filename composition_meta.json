@@ -1,0 +1,103 @@
+{
+  "version": "2.0",
+  "description": "構成要素カテゴリのメタ定義（完全ユーザ拡張型）",
+  "doc_types": {
+    "novel": {
+      "label": "小説",
+      "editable": false,
+      "categories": [
+        {
+          "id": "base",
+          "label": "基本項目",
+          "editable": false,
+          "elements": [
+            {
+              "id": "title",
+              "label": "題名",
+              "editable": true
+            },
+            {
+              "id": "plot",
+              "label": "あらすじ",
+              "editable": true
+            }
+          ]
+        },
+        {
+          "id": "scene",
+          "label": "シーン案",
+          "editable": true,
+          "elements": [
+            {
+              "id": "intro",
+              "label": "導入",
+              "editable": true
+            },
+            {
+              "id": "daily_life",
+              "label": "日常",
+              "editable": true
+            },
+            {
+              "id": "incident",
+              "label": "事件",
+              "editable": true
+            },
+            {
+              "id": "conflict",
+              "label": "葛藤",
+              "editable": true
+            },
+            {
+              "id": "turning_point",
+              "label": "転機",
+              "editable": true
+            },
+            {
+              "id": "climax",
+              "label": "クライマックス",
+              "editable": true
+            },
+            {
+              "id": "ending",
+              "label": "結末",
+              "editable": true
+            }
+          ]
+        },
+        {
+          "id": "character",
+          "label": "キャラ案",
+          "editable": true,
+          "elements": [
+            {
+              "id": "protagonist",
+              "label": "主人公",
+              "editable": true
+            },
+            {
+              "id": "heroine",
+              "label": "ヒロイン",
+              "editable": true
+            },
+            {
+              "id": "antagonist",
+              "label": "対立者",
+              "editable": true
+            }
+          ]
+        },
+        {
+          "id": "foreshadowing",
+          "label": "伏線案",
+          "editable": true,
+          "elements": [
+            { "id": "early_hint", "label": "序盤の違和感", "editable": true },
+            { "id": "mid_hint", "label": "中盤の示唆", "editable": true },
+            { "id": "payoff", "label": "回収", "editable": true }
+          ]
+        }
+      ]
+    }
+  }
+}

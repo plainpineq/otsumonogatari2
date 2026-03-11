@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+services/__pycache__/
+system_design_document.md
+evaluation_score_guide.md
+user_data/
+
+# Security & Local Config
+api_keys_config.json
+users.db
+llm_models_config.json
+.vscode/
+
+# Python
+*.py[cod]
+*$py.class

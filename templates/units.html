@@ -1,0 +1,6 @@
+<h3>{{ labels.unit }}</h3>
+<ul>
+{% for u in document.units %}
+  <li><strong>{{ u.title }}</strong>：{{ u.summary }}</li>
+{% endfor %}
+</ul>

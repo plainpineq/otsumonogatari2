@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>乙物語 ～ Otsumonogatari ～</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/static/Otsumonogatari.png">
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans+JP:wght@400;700&family=Hina+Mincho&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/stylish.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+  <div class="container-fluid d-flex align-items-center">
+    <!-- Left: Image -->
+    <a class="navbar-brand" href="{{ '/dashboard' if session.user_id else '/login' }}">
+        <img src="/static/Otsumonogatari.png" alt="乙物語" style="max-height: 80px;">
+    </a>
+
+    <!-- Center: Text -->
+    <span class="centered-brand-text d-none d-lg-block">乙物語 ～ Otsumonogatari ～</span>
+
+    <!-- Right: Toggler and Nav items -->
+    <div class="d-flex align-items-center ms-auto">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/usage" target="_blank"><i class="bi bi-question-circle"></i> ヘルプ</a>
+          </li>
+          {% if session.user_id %}
+          <li class="nav-item">
+            <a class="nav-link" href="/logout">ログアウト</a>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="container mt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <script>console.log("Flash messages found:", {{ messages | tojson }});</script>
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'primary' if category == 'success' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</main>
+
+<footer>
+    <hr>
+    <div class="text-center py-3">
+        <small>© 2026 乙物語 / Otsumonogatari. All Rights Reserved.</small>
+    </div>
+    <!-- Bootstrap JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
+</footer>
+
+{% block scripts %}
+    <script>
+    // 画面上部にメッセージを表示するヘルパー関数
+    function showJsFlash(message, category) {
+        const container = document.querySelector('main.container');
+        if (!container) return;
+        const alertDiv = document.createElement('div');
+        const colorClass = category === 'success' ? 'primary' : (category === 'error' ? 'danger' : category);
+        alertDiv.className = `alert alert-${colorClass} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        container.insertBefore(alertDiv, container.firstChild);
+    }
+
+    // This script is for activating tabs from the URL hash, which was a previous user request.
+    // It is kept here to maintain functionality.
+    document.addEventListener('DOMContentLoaded', function() {
+        let hash = window.location.hash;
+        let tabToActivate;
+
+        if (hash) {
+            tabToActivate = document.querySelector('.nav-tabs button[data-bs-target="' + hash + '"]');
+        }
+
+        let tab;
+        if (tabToActivate) {
+            tab = new bootstrap.Tab(tabToActivate);
+        } else {
+            // Activate the default tab if no hash or hash is invalid
+            let defaultTab = document.querySelector('.nav-tabs button');
+            if(defaultTab) {
+                tab = new bootstrap.Tab(defaultTab);
+            }
+        }
+        if (tab) {
+            tab.show();
+        }
+    });
+    </script>
+{% endblock %}
+
+</body>
+</html>
+

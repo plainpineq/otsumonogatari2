@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Scene Input</title>
+</head>
+<body>
+
+<h1>Scene 設定</h1>
+
+<form method="post">
+    <label>Summary</label><br>
+    <textarea name="summary" rows="6" cols="80">{{ scene.summary }}</textarea><br><br>
+
+    <label>Notes</label><br>
+    <textarea name="notes" rows="6" cols="80">{{ scene.notes }}</textarea><br><br>
+
+    <button type="submit">Prompt確認へ</button>
+</form>
+
+</body>
+</html>
