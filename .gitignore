@@ -14,3 +14,5 @@ gemini_api_test.py
 # Python
 *.py[cod]
 *$py.class
+gemini_api_test.py
+ollama_test.py
