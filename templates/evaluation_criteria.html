@@ -9,22 +9,17 @@
         </button>
     </div>
 
-    {% set config = document.get('evaluation_config', {}) %}
-    {% set targets = config.get('targets', {}) %}
-    {% set weights = config.get('category_weights', {}) %}
-    {% set interactions = config.get('interactions', []) %}
-
     <!-- 分類別アコーディオン -->
     <div class="accordion mb-4" id="categoryAccordion">
-        {% for classification, labels in semantic_label_schema.items() %}
+        {% for classification, labels in semantic_label_schema.items %}
             {% if classification != "scale" %}
             <div class="accordion-item">
-                <h2 class="accordion-header" id="heading_{{ loop.index }}">
-                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_{{ loop.index }}" aria-expanded="false" aria-controls="collapse_{{ loop.index }}">
+                <h2 class="accordion-header" id="heading_{{ forloop.counter }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_{{ forloop.counter }}" aria-expanded="false" aria-controls="collapse_{{ forloop.counter }}">
                         {{ classification }}
                     </button>
                 </h2>
-                <div id="collapse_{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="heading_{{ loop.index }}" data-bs-parent="#categoryAccordion">
+                <div id="collapse_{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading_{{ forloop.counter }}" data-bs-parent="#categoryAccordion">
                     <div class="accordion-body">
                         <!-- 分類重み設定 -->
                         <div class="mb-4 p-3 bg-light rounded border">
@@ -33,33 +28,34 @@
                                 <input type="range" class="form-range flex-grow-1 me-3 category-weight-slider" 
                                        min="0" max="5" step="0.1" 
                                        data-category="{{ classification }}"
-                                       value="{{ weights.get(classification, 1.0) }}"
+                                       value="{{ evaluation_config.category_weights|default:1.0 }}"
                                        oninput="this.nextElementSibling.innerText = parseFloat(this.value).toFixed(1)">
                                 <span class="badge bg-primary fs-6" style="width: 50px;" data-category-badge="{{ classification }}">
-                                    {{ "%.1f"|format(weights.get(classification, 1.0)) }}
+                                    {{ evaluation_config.category_weights|default:1.0|floatformat:1 }}
                                 </span>
                             </div>
                         </div>
 
                         <!-- 目標値設定 -->
                         <div class="row">
-                            {% for en_key, spec in labels.items() %}
+                            {% for en_key, spec in labels.items %}
                             <div class="col-md-6 mb-3">
                                 <label class="form-label mb-1">
                                     <strong>{{ spec.ja_label }}</strong> 
                                     <small class="text-muted">({{ en_key }})</small>
                                 </label>
                                 <div class="d-flex align-items-center">
-                                    {% set target_key = classification ~ "::" ~ en_key %}
+                                    {% with target_key=classification|add:"::"|add:en_key %}
                                     <input type="range" class="form-range flex-grow-1 me-3 target-slider" 
                                            min="0" max="4" step="1" 
                                            data-target-key="{{ target_key }}"
-                                           value="{{ targets.get(target_key, 2) }}"
+                                           value="{{ evaluation_config.targets|default:2 }}"
                                            oninput="this.nextElementSibling.innerText = this.value">
                                     <span class="badge bg-secondary fs-6" style="width: 30px;" 
                                           data-target-badge="{{ target_key }}">
-                                        {{ targets.get(target_key, 2) }}
+                                        {{ evaluation_config.targets|default:2 }}
                                     </span>
+                                    {% endwith %}
                                 </div>
                                 <div class="form-text mt-0">{{ spec.description }}</div>
                             </div>
@@ -86,10 +82,10 @@
                         <div class="col-md-4">
                             <label class="form-label small text-muted">ラベルA</label>
                             <select id="interaction-label-a" class="form-select form-select-sm">
-                                {% for classification, labels in semantic_label_schema.items() %}
+                                {% for classification, labels in semantic_label_schema.items %}
                                     {% if classification != "scale" %}
                                         <optgroup label="{{ classification }}">
-                                            {% for en_key, spec in labels.items() %}
+                                            {% for en_key, spec in labels.items %}
                                                 <option value="{{ classification }}::{{ en_key }}">{{ classification }}::{{ spec.ja_label }}</option>
                                             {% endfor %}
                                         </optgroup>
@@ -100,10 +96,10 @@
                         <div class="col-md-4">
                             <label class="form-label small text-muted">ラベルB</label>
                             <select id="interaction-label-b" class="form-select form-select-sm">
-                                {% for classification, labels in semantic_label_schema.items() %}
+                                {% for classification, labels in semantic_label_schema.items %}
                                     {% if classification != "scale" %}
                                         <optgroup label="{{ classification }}">
-                                            {% for en_key, spec in labels.items() %}
+                                            {% for en_key, spec in labels.items %}
                                                 <option value="{{ classification }}::{{ en_key }}">{{ classification }}::{{ spec.ja_label }}</option>
                                             {% endfor %}
                                         </optgroup>
@@ -132,7 +128,6 @@
 
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="small fw-bold text-secondary mb-0">登録済み効果一覧</h6>
-                        <!-- 重複ボタンを削除しました -->
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0" id="interactions-table">
@@ -158,261 +153,3 @@
         <button type="button" id="save-criteria-btn" class="btn btn-success px-4">評価基準を保存</button>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const saveBtn = document.getElementById('save-criteria-btn');
-    const addInteractionBtn = document.getElementById('add-interaction-btn');
-    const autoGenBtn = document.getElementById('auto-generate-interactions-btn');
-    const interactionsList = document.getElementById('interactions-list');
-
-    // base.html の showJsFlash を利用するためのラッパー（showAlertが期待されているため）
-    function showAlert(message, type = 'danger') {
-        if (typeof showJsFlash === 'function') {
-            showJsFlash(message, type === 'danger' ? 'error' : type);
-        } else {
-            // 万が一定義されていない場合のフォールバック
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.role = 'alert';
-            alertDiv.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
-            const container = document.querySelector('.card.p-4.shadow-sm.mt-3') || document.body;
-            container.prepend(alertDiv);
-        }
-    }
-    
-    // スキーマと初期データの取得
-    const labelSchema = {{ semantic_label_schema | tojson | safe }} || {};
-    let currentInteractions = {{ interactions | tojson | safe }} || [];
-
-    console.log("Evaluation Criteria Initialized:");
-    console.log("- Schema loaded:", Object.keys(labelSchema).length, "categories");
-    console.log("- Interactions loaded:", currentInteractions.length, "items");
-
-    function getJaLabel(fullEnKey) {
-        if (!fullEnKey || !fullEnKey.includes('::')) return fullEnKey;
-        const [cat, enKey] = fullEnKey.split('::');
-        if (labelSchema[cat] && labelSchema[cat][enKey]) {
-            return `${cat}::${labelSchema[cat][enKey].ja_label}`;
-        }
-        return fullEnKey;
-    }
-
-    // 自動生成関数
-    async function runAutoGenerate(silent = false) {
-        if (!silent) {
-            autoGenBtn.disabled = true;
-            autoGenBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 設定中...';
-        }
-
-        try {
-            // 1. 目標値と重みの適用 (新API: サーバー側の最新 genre_config を使用)
-            const applyResponse = await fetch('/api/evaluation/apply-genre', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    doc_id: "{{ document.id }}"
-                })
-            });
-            const applyData = await applyResponse.json();
-            
-            if (!applyData.success) {
-                if (!silent) showAlert('目標値の更新に失敗しました: ' + applyData.error, 'danger');
-                return;
-            }
-
-            // 2. 相互作用の自動生成 (既存API)
-            const response = await fetch(`/document/{{ document.id }}/auto_generate_interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                if (!silent) {
-                    const subGenresStr = (applyData.genre_applied.sub && applyData.genre_applied.sub.length > 0) 
-                        ? applyData.genre_applied.sub.join('・') 
-                        : 'なし';
-                    
-                    // 完了メッセージを表示
-                    showAlert('ジャンル設定（' + applyData.genre_applied.main + ' × ' + subGenresStr + '）を適用しました。設定を反映するため5秒後にリロードします。', 'success');
-                    
-                    // リロード時に「評価基準」タブが維持されるようにハッシュを付与
-                    setTimeout(() => {
-                        window.location.href = window.location.pathname + window.location.search + '#evaluation-criteria';
-                        window.location.reload();
-                    }, 5000);
-                }
-            } else {
-                if (!silent) showAlert('相乗効果の生成に失敗しました: ' + data.error, 'danger');
-            }
-        } catch (error) {
-            if (!silent) showAlert('自動適用中にエラーが発生しました: ' + error.message, 'danger');
-        } finally {
-            if (!silent && autoGenBtn) {
-                autoGenBtn.disabled = false;
-                autoGenBtn.innerHTML = '<i class="bi bi-magic me-1"></i> ジャンルから自動設定';
-            }
-        }
-    }
-
-    autoGenBtn.addEventListener('click', () => runAutoGenerate(false));
-
-    // タブ表示時に空なら自動生成 (初回のみ、サイレント実行)
-    const criteriaTab = document.getElementById('evaluation-criteria-tab');
-    if (criteriaTab) {
-        criteriaTab.addEventListener('shown.bs.tab', function() {
-            // 本当に1件も存在しない場合のみ、かつ手動追加もされていない場合のみ実行
-            if (currentInteractions.length === 0) {
-                console.log("Interactions empty, triggering silent auto-generation.");
-                runAutoGenerate(true).then(() => {
-                    // 自動生成後はUIを更新
-                    renderInteractions();
-                });
-            }
-        }, { once: true });
-    }
-
-    // 相互作用リストの描画
-    function renderInteractions() {
-        interactionsList.innerHTML = '';
-        if (currentInteractions.length === 0) {
-            interactionsList.innerHTML = '<tr><td colspan="4" class="text-center text-muted">登録された相互作用はありません。</td></tr>';
-            return;
-        }
-
-        currentInteractions.forEach((inter, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="small">${getJaLabel(inter.key_a)}</td>
-                <td class="small">${getJaLabel(inter.key_b)}</td>
-                <td class="fw-bold text-center ${inter.strength < 0 ? 'text-primary' : 'text-danger'}">${inter.strength.toFixed(1)}</td>
-                <td>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-secondary btn-sm py-0" onclick="editInteraction(${index})">編集</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm py-0" onclick="deleteInteraction(${index})">削除</button>
-                    </div>
-                </td>
-            `;
-            interactionsList.appendChild(row);
-        });
-    }
-
-    // 相互作用の削除 (グローバルに関数を公開)
-    window.deleteInteraction = function(index) {
-        currentInteractions.splice(index, 1);
-        renderInteractions();
-    };
-
-    // 相互作用の編集
-    window.editInteraction = function(index) {
-        const inter = currentInteractions[index];
-        
-        // セレクトボックスの値を設定
-        document.getElementById('interaction-label-a').value = inter.key_a;
-        document.getElementById('interaction-label-b').value = inter.key_b;
-        
-        // 強度を設定
-        const strengthSlider = document.getElementById('interaction-strength');
-        strengthSlider.value = inter.strength;
-        document.getElementById('interaction-strength-val').innerText = inter.strength.toFixed(1);
-        
-        // 既存のものを削除
-        currentInteractions.splice(index, 1);
-        renderInteractions();
-        
-        // 入力エリアへスクロール
-        document.getElementById('interaction-label-a').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    // 相互作用の追加
-    addInteractionBtn.addEventListener('click', () => {
-        const keyA = document.getElementById('interaction-label-a').value;
-        const keyB = document.getElementById('interaction-label-b').value;
-        const strength = parseFloat(document.getElementById('interaction-strength').value);
-
-        if (keyA === keyB) {
-            alert('同じラベル同士の相互作用は設定できません。');
-            return;
-        }
-
-        // 重複チェック (正規化して比較)
-        const sortedKeys = [keyA, keyB].sort();
-        const exists = currentInteractions.some(inter => {
-            const interKeys = [inter.key_a, inter.key_b].sort();
-            return interKeys[0] === sortedKeys[0] && interKeys[1] === sortedKeys[1];
-        });
-
-        if (exists) {
-            alert('このラベル間の相互作用は既に登録されています。');
-            return;
-        }
-
-        currentInteractions.push({
-            key_a: keyA,
-            key_b: keyB,
-            strength: strength
-        });
-
-        renderInteractions();
-        // 強度をリセット
-        document.getElementById('interaction-strength').value = 0;
-        document.getElementById('interaction-strength-val').innerText = '0.0';
-    });
-
-    // 保存処理
-    saveBtn.addEventListener('click', async () => {
-        // 保存前に相互作用の強度を0.1単位で丸める
-        const sanitizedInteractions = currentInteractions.map(inter => ({
-            ...inter,
-            strength: Math.round(inter.strength * 10) / 10
-        }));
-
-        const config = {
-            targets: {},
-            category_weights: {},
-            interactions: sanitizedInteractions
-        };
-
-        // 目標値の取得
-        document.querySelectorAll('.target-slider').forEach(slider => {
-            config.targets[slider.dataset.targetKey] = parseInt(slider.value);
-        });
-
-        // 重みの取得
-        document.querySelectorAll('.category-weight-slider').forEach(slider => {
-            config.category_weights[slider.dataset.category] = parseFloat(slider.value);
-        });
-
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
-
-        try {
-            const response = await fetch(`/document/{{ document.id }}/save_criteria`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ evaluation_config: config })
-            });
-            const data = await response.json();
-            if (response.ok) {
-                showAlert('評価基準を保存しました。', 'success');
-                // 評価タブのスコア表示も連動して更新する
-                if (typeof updateEnergyBreakdown === 'function') {
-                    updateEnergyBreakdown();
-                }
-            } else {
-                throw new Error(data.error || '保存に失敗しました。');
-            }
-        } catch (error) {
-            showAlert('エラー: ' + error.message, 'danger');
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.textContent = '評価基準を保存';
-        }
-    });
-
-    // 初期描画
-    renderInteractions();
-});
-</script>
-

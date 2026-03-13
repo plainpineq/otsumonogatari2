@@ -8,7 +8,9 @@ class FeatureExtractor:
     5段階評価（0-4）へ対応した安全版
     """
 
-    def __init__(self, schema_path: str = "prompt_templates/semantic_label_schema.json"):
+    def __init__(
+        self, schema_path: str = "prompt_templates/semantic_label_schema.json"
+    ):
         self.schema_path = schema_path
         self.schema = self._load_schema()
         self._build_global_label_index()
@@ -30,12 +32,13 @@ class FeatureExtractor:
         for classification in self.schema.keys():
             if classification == "scale":
                 continue
-            
+
             # 各分類のラベルを取得（日本語ラベル ja_label ではなく、キー名 dramatic, causal 等を使用）
             labels = list(self.schema[classification].keys())
             for label in labels:
-                if label == "scale": continue # 分類内個別スケールがあれば除外
-                
+                if label == "scale":
+                    continue  # 分類内個別スケールがあれば除外
+
                 key = (classification, label)
                 self.global_label_order.append(key)
                 self.global_index_map[key] = index
@@ -72,9 +75,7 @@ class FeatureExtractor:
     # --------------------------
     def get_labels(self, classification: str):
         if classification not in self.schema:
-            raise KeyError(
-                f"schemaに存在しないclassificationです: {classification}"
-            )
+            raise KeyError(f"schemaに存在しないclassificationです: {classification}")
 
         return list(self.schema[classification].keys())
 
@@ -83,7 +84,11 @@ class FeatureExtractor:
     # --------------------------
     def get_scale(self, classification: str = None):
         # グローバルスケールまたは分類別スケールを返す
-        if classification and classification in self.schema and "scale" in self.schema[classification]:
+        if (
+            classification
+            and classification in self.schema
+            and "scale" in self.schema[classification]
+        ):
             return self.schema[classification]["scale"]
         return self.schema.get("scale", {"min": 0, "max": 4})
 
@@ -131,15 +136,12 @@ class FeatureExtractor:
 
         for label in labels:
             raw_value = raw_eval.get(label, 0)
-            scalar_features[label] = self._validate_value(
-                raw_value,
-                classification
-            )
+            scalar_features[label] = self._validate_value(raw_value, classification)
 
         return {
             "element": element_data.get("element"),
             "classification": classification,
-            "scalar_features": scalar_features
+            "scalar_features": scalar_features,
         }
 
     # --------------------------
@@ -149,7 +151,4 @@ class FeatureExtractor:
         classification = feature_data["classification"]
         labels = self.get_labels(classification)
 
-        return [
-            feature_data["scalar_features"].get(label, 0)
-            for label in labels
-        ]
+        return [feature_data["scalar_features"].get(label, 0) for label in labels]

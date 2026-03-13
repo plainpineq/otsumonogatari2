@@ -9,7 +9,7 @@ from services.services import (
     get_intent,
     create_unit,
     create_entity,
-    save_intent
+    save_intent,
 )
 from db import get_conn
 import uuid
@@ -19,6 +19,7 @@ import json
 # =========================
 # JSON → Domain
 # =========================
+
 
 def import_document_from_json(json_doc: Dict) -> str:
     """
@@ -31,27 +32,25 @@ def import_document_from_json(json_doc: Dict) -> str:
 
     # ---- Document ----
     with get_conn() as conn:
-        row = conn.execute(
-            "SELECT id FROM story WHERE id=?",
-            (document_id,)
-        ).fetchone()
+        row = conn.execute("SELECT id FROM story WHERE id=?", (document_id,)).fetchone()
 
         if not row:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO story (id, title, synopsis, doc_type)
                 VALUES (?, ?, ?, ?)
-            """, (
-                document_id,
-                json_doc.get("title", ""),
-                "",
-                json_doc.get("doc_type", "novel")
-            ))
+            """,
+                (
+                    document_id,
+                    json_doc.get("title", ""),
+                    "",
+                    json_doc.get("doc_type", "novel"),
+                ),
+            )
             conn.commit()
 
     # ---- Units ----
-    existing_units = {
-        u.title for u in list_units(document_id)
-    }
+    existing_units = {u.title for u in list_units(document_id)}
 
     for order, unit in enumerate(json_doc.get("units", [])):
         if unit.get("title") in existing_units:
@@ -61,13 +60,11 @@ def import_document_from_json(json_doc: Dict) -> str:
             document_id=document_id,
             title=unit.get("title", ""),
             summary=unit.get("content", ""),
-            order_no=order
+            order_no=order,
         )
 
     # ---- Entities ----
-    existing_entities = {
-        e.name for e in list_entities(document_id)
-    }
+    existing_entities = {e.name for e in list_entities(document_id)}
 
     for ent in json_doc.get("entities", []):
         if ent.get("name") in existing_entities:
@@ -77,7 +74,7 @@ def import_document_from_json(json_doc: Dict) -> str:
             document_id=document_id,
             name=ent.get("name", ""),
             role=ent.get("role", ""),
-            description=ent.get("description", "")
+            description=ent.get("description", ""),
         )
 
     # ---- Intent ----
@@ -88,7 +85,7 @@ def import_document_from_json(json_doc: Dict) -> str:
             genre=intent_json.get("genre", ""),
             theme_or_claim=intent_json.get("theme_or_claim", ""),
             values=intent_json.get("values", ""),
-            constraints=intent_json.get("constraints", [])
+            constraints=intent_json.get("constraints", []),
         )
         save_intent(intent)
 

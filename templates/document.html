@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load core_extras %}
 
 {% block content %}
 <div class="card p-4 mb-4">
@@ -7,10 +8,10 @@
         <span id="auto-save-status" class="badge bg-secondary ms-3" style="display: none; opacity: 0.7;">
             <i class="bi bi-cloud-check me-1"></i> 変更を保存中...
         </span>
-        <div id="document-data" data-doc='{{ document | tojson | default({}, true) }}'></div> {# documentデータをdata属性に埋め込む #}
+        <div id="document-data" data-doc='{{ document|tojson|default:"{}" }}'></div> {# documentデータをdata属性に埋め込む #}
         <div id="semantic-label-schema" 
-             data-schema='{{ semantic_label_schema | tojson | default({}, true) }}'
-             data-ordered-keys='{{ semantic_label_schema.keys() | list | tojson | default([], true) }}'></div> {# schemaとキーの順序を埋め込む #}
+             data-schema='{{ semantic_label_schema|tojson|default:"{}" }}'
+             data-ordered-keys='{{ semantic_label_keys|tojson|default:"[]" }}'></div> {# schemaとキーの順序を埋め込む #}
         <div>
             <a href="/dashboard" class="btn btn-outline-secondary me-2">ダッシュボード</a>
             <button type="button" id="download-document-btn" class="btn btn-info">ダウンロード</button>
@@ -102,20 +103,20 @@
             <h2 class="h4 mb-3">基本設定</h2>
 
             <form method="post" action="/document/{{ document.id }}/intent">
+                {% csrf_token %}
                 <!-- ジャンル設定 -->
                 <div class="card mb-4 border-primary">
                     <div class="card-header bg-primary text-white">
                         <h3 class="h6 mb-0">ジャンル設定</h3>
                     </div>
                     <div class="card-body">
-                        {% set genre_cfg = document.get('genre_config', {}) %}
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold small">主ジャンル (1つ)</label>
                                 <select name="main_genre" class="form-select form-select-sm">
                                     <option value="">-- 未選択 --</option>
                                     {% for g in available_genres %}
-                                    <option value="{{ g }}" {% if genre_cfg.main == g %}selected{% endif %}>{{ g }}</option>
+                                    <option value="{{ g }}" {% if document.genre_config.main == g %}selected{% endif %}>{{ g }}</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -125,7 +126,7 @@
                                     {% for g in available_genres %}
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" name="sub_genres" value="{{ g }}" id="sub_{{ g }}"
-                                               {% if g in genre_cfg.sub | default([], true) %}checked{% endif %}>
+                                               {% if g in document.genre_config.sub|default:"[]" %}checked{% endif %}>
                                         <label class="form-check-label small" for="sub_{{ g }}">{{ g }}</label>
                                     </div>
                                     {% endfor %}
@@ -136,7 +137,7 @@
                 </div>
 
                 {% if document.intent and document.intent.fields %}
-                    {% for key, field in document.intent.fields.items() %}
+                    {% for key, field in document.intent.fields.items %}
                         <div class="mb-3 d-flex align-items-center">
                             <label class="form-label fw-bold me-2">{{ field.label }}</label>
                             <input
@@ -192,36 +193,39 @@
     <div class="tab-pane fade" id="composition" role="tabpanel" aria-labelledby="composition-tab">
         <div class="card p-4 shadow-sm mt-3">
             <form method="post" action="/document/{{ document.id }}">
+                {% csrf_token %}
                 <input type="hidden" name="update_composition_elements" value="1">
 
                 <h2 class="h4 mb-3">構成要素の定義</h2>
 
-                {% set doc_type_meta_data = global_composition_meta.doc_types.get(mapped_doc_type_id) %}                {% if doc_type_meta_data %}
-                    <h3 class="h5 mt-4">{{ doc_type_meta_data.label }}の構成要素</h3>
-                    {% if doc_type_meta_data.editable %}
-                        <div class="mb-3 d-flex">
-                            <input 
-                                type="text" 
-                                name="new_doc_type_category_label" 
-                                placeholder="新しい分類のラベル（例：登場人物、場所）" 
-                                class="form-control me-2" 
-                                style="width: 85%;"
-                            >
-                            <button 
-                                type="submit" 
-                                name="add_doc_type_category" 
-                                value="1" 
-                                class="btn btn-purple text-nowrap"
-                            >
-                                ＋ 追加
-                            </button>
-                        </div>
-                    {% endif %}
+                {% if global_composition_meta.doc_types.items %}
+                    {% for dt_id, dt_meta in global_composition_meta.doc_types.items %}
+                        {% if dt_id == mapped_doc_type_id %}
+                            <h3 class="h5 mt-4">{{ dt_meta.label }}の構成要素</h3>
+                            {% if dt_meta.editable %}
+                                <div class="mb-3 d-flex">
+                                    <input 
+                                        type="text" 
+                                        name="new_doc_type_category_label" 
+                                        placeholder="新しい分類のラベル（例：登場人物、場所）" 
+                                        class="form-control me-2" 
+                                        style="width: 85%;"
+                                    >
+                                    <button 
+                                        type="submit" 
+                                        name="add_doc_type_category" 
+                                        value="1" 
+                                        class="btn btn-purple text-nowrap"
+                                    >
+                                        ＋ 追加
+                                    </button>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
                 {% endif %}
 
-                {% set all_categories_data = document.composition_elements.get('categories', []) %}
-                {% for category in all_categories_data %}
-                    {% set category_meta = (doc_type_meta_data.categories | selectattr("id", "equalto", category.id) | first) if doc_type_meta_data else none %}
+                {% for category in document.composition_elements.categories %}
                     <div class="card p-3 mb-3">
                         <h4 class="h6 mb-3 d-flex justify-content-between align-items-center">
                             {% if category.editable %}
@@ -230,7 +234,7 @@
                                 <span>{{ category.label }}</span>
                             {% endif %}
 
-                            {% if doc_type_meta_data and doc_type_meta_data.editable and category.editable and category.label != '基本項目' %}
+                            {% if category.editable and category.label != '基本項目' %}
                                 <button type="submit" name="remove_doc_type_category" value="{{ category.id }}" class="btn btn-outline-danger btn-sm ms-2" title="分類削除"><i class="bi bi-trash"></i></button>
                             {% endif %}
                         </h4>
@@ -242,22 +246,20 @@
                                 class="form-control"
                                 rows="3"
                                 placeholder="この分類に関するLLMへの追加の指示があれば入力してください（例：必ずSF要素を含めること）"
-                            >{{ category.additional_instruction if category.additional_instruction is not none else '' }}</textarea>
+                            >{{ category.additional_instruction|default:"" }}</textarea>
                         </div>
-                        {% set category_id = category.id %}
-                        {% set elements = category.elements %}
 
-                        {% if elements %}
-                            {% for element in elements %}
+                        {% if category.elements %}
+                            {% for element in category.elements %}
                                 <div class="element-item mb-2 d-flex align-items-center">
                                     <input
                                         type="text"
-                                        name="element_label_{{ category_id }}_{{ element.id }}"
+                                        name="element_label_{{ category.id }}_{{ element.id }}"
                                         value="{{ element.label }}"
                                         class="form-control me-2"
-                                        placeholder="{{ category.label }} #{{ loop.index + 1 }}"
+                                        placeholder="{{ category.label }} #{{ forloop.counter|add:1 }}"
                                     >
-                                    <button type="submit" name="remove_element_{{ category_id }}_{{ element.id }}" value="{{ element.id }}" class="btn btn-outline-danger btn-sm" title="削除">
+                                    <button type="submit" name="remove_element_{{ category.id }}_{{ element.id }}" value="{{ element.id }}" class="btn btn-outline-danger btn-sm" title="削除">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -265,7 +267,7 @@
                         {% endif %}
 
                         {% if category.editable %}
-                            <button type="submit" name="add_element_{{ category_id }}" value="1" class="btn btn-purple btn-sm mt-2">＋ {{ category.label }}を追加</button>
+                            <button type="submit" name="add_element_{{ category.id }}" value="1" class="btn btn-purple btn-sm mt-2">＋ {{ category.label }}を追加</button>
                         {% endif %}
                     </div>
                 {% endfor %}
@@ -689,7 +691,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/document/${docId}/calculate_energy`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({ selected_items: selectedItems })
             });
             const data = await response.json();
@@ -759,7 +764,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     const response = await fetch(`/document/${docId}/save_manual_selection`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
                         body: JSON.stringify({ category, element, index })
                     });
                     const data = await response.json();
@@ -789,6 +797,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- 自動保存機能 (Auto-save) ---
     let autoSaveTimeout;
     const autoSaveStatus = document.getElementById('auto-save-status');
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 
     async function autoSaveDocument() {
         if (autoSaveStatus) autoSaveStatus.style.display = 'inline-block';
@@ -849,7 +872,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/api/document/${docId}/save`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify(dataToSave)
             });
             const result = await response.json();
@@ -901,7 +927,7 @@ document.addEventListener('DOMContentLoaded', function() {
         alertDiv.role = 'alert';
         alertDiv.innerHTML = `
             ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
         document.querySelector('.tab-content').prepend(alertDiv);
     }
@@ -1032,7 +1058,12 @@ document.addEventListener('DOMContentLoaded', function() {
         proposalsResultsDiv.style.display = 'none';
 
         try {
-            const response = await fetch(`/document/${docId}/generate_proposals`, { method: 'POST' });
+            const response = await fetch(`/document/${docId}/generate_proposals`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
             const data = await response.json();
 
             if (!response.ok) {
@@ -1100,7 +1131,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/document/${docId}/save_selection`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify(selectedBasicElements)
             });
             const data = await response.json();
@@ -1157,7 +1191,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(`/document/${docId}/generate_composition`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({ category_label: categoryLabel })
             });
             const data = await response.json();
@@ -1165,7 +1202,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!response.ok) {
                  categorySection.innerHTML = `
                     <h5>分類: ${categoryLabel}</h5>
-                    <div class="alert alert-danger mb-0">${data.error || "提案の生成に失敗しました。"}</div>
+                    <div class="alert alert-danger alert-dismissible fade show mb-0">
+                        ${data.error || "提案の生成に失敗しました。"}
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 `;
                  return;
             }
@@ -1185,7 +1225,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             categorySection.innerHTML = `
                 <h5>分類: ${categoryLabel}</h5>
-                <div class="alert alert-danger mb-0">エラーが発生しました: ${error.message}</div>
+                <div class="alert alert-danger alert-dismissible fade show mb-0">
+                    エラーが発生しました: ${error.message}
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
             `;
         }
     }
@@ -1346,7 +1389,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderInitialSemanticLabels() {
-        const initialSemanticLabels = {{ document.semantic_labels | tojson | default([], true) }};
+        const initialSemanticLabels = {{ document.semantic_labels|tojson|default:"[]" }};
         if (!initialSemanticLabels || initialSemanticLabels.length === 0) return;
 
         // Group by category to ensure we process them correctly if needed, 
@@ -1500,7 +1543,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch(triggerUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({})
             });
             const result = await response.json();
@@ -1555,13 +1601,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
             eventSource.onerror = (error) => {
                 console.error('SSE error:', error);
-                evaluationStatusDiv.innerHTML = '<div class="alert alert-danger">評価中に通信エラーが発生しました。</div>';
+                evaluationStatusDiv.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        評価中に通信エラーが発生しました。
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
                 eventSource.close();
                 document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
             };
 
             eventSource.addEventListener('end_stream', () => {
-                evaluationStatusDiv.innerHTML = '<div class="alert alert-success">評価が全て完了しました。</div>';
+                evaluationStatusDiv.innerHTML = `
+                    <div class="alert alert-success alert-dismissible fade show">
+                        評価が全て完了しました。
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
                 eventSource.close();
                 document.querySelectorAll('.evaluation-btn').forEach(btn => btn.disabled = false);
                 updateEnergyBreakdown(); 
@@ -1675,7 +1729,10 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const response = await fetch(`/document/${docId}/save_generated_category`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
                     body: JSON.stringify({
                         category: categoryLabel,
                         elements: updatedElements
@@ -1834,7 +1891,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     const response = await fetch(`/document/${docId}/quantum_optimize`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
                         body: JSON.stringify({})
                     });
                     const data = await response.json();
@@ -2277,7 +2337,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/draft/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({ doc_id: docId, draft_id: draftId })
             });
             const data = await response.json();
@@ -2357,7 +2420,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/draft/save_configs', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({
                     doc_id: docId,
                     story_blueprint: blueprint,
@@ -2438,7 +2504,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/draft/start_from_evaluation', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({
                     doc_id: docId,
                     selected_elements: selectedElements,
@@ -2556,7 +2625,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const response = await fetch('/api/draft/delete', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify(body)
             });
             const data = await response.json();
@@ -2602,7 +2674,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const response = await fetch('/api/draft/update', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify(body)
             });
             const data = await response.json();
@@ -2631,7 +2706,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/draft/update', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
                 body: JSON.stringify({
                     doc_id: docId,
                     manuscript_content: content // API側での受け取りが必要

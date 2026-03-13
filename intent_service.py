@@ -2,6 +2,7 @@
 
 from intent_templates import COMMON_INTENTS, DOC_TYPE_INTENTS
 
+
 def generate_intent(doc_type: str) -> dict:
     """
     doc_type 選択時に Intent を自動生成
@@ -10,21 +11,13 @@ def generate_intent(doc_type: str) -> dict:
 
     # 共通 Intent
     for key, label in COMMON_INTENTS:
-        fields[key] = {
-            "label": label,
-            "value": ""
-        }
+        fields[key] = {"label": label, "value": ""}
 
     # doc_type 固有 Intent
     for key, label in DOC_TYPE_INTENTS.get(doc_type, []):
-        fields[key] = {
-            "label": label,
-            "value": ""
-        }
+        fields[key] = {"label": label, "value": ""}
 
-    return {
-        "fields": fields
-    }
+    return {"fields": fields}
 
 
 def normalize_intent(document: dict) -> None:

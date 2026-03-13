@@ -2,6 +2,7 @@ from amplify import VariableGenerator, solve
 from amplify.client import FixstarsClient
 import logging
 
+
 def solve_with_fixstars(Q, api_key):
 
     # 変数数
@@ -28,12 +29,6 @@ def solve_with_fixstars(Q, api_key):
     values = solution.values
     energy = solution.objective  # ← ここが修正点
 
-    selected_indices = [
-        i for i in range(n)
-        if values[x[i]] == 1
-    ]
+    selected_indices = [i for i in range(n) if values[x[i]] == 1]
 
-    return {
-        "selected_indices": selected_indices,
-        "energy": energy
-    }
+    return {"selected_indices": selected_indices, "energy": energy}

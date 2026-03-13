@@ -1,0 +1,65 @@
+<div class="mb-3">
+    <label for="llm_provider_{{ role }}" class="form-label">LLM プロバイダー</label>
+    <select class="form-select llm-provider-select" id="llm_provider_{{ role }}" name="llm_servers[{{ role }}][provider]" data-role="{{ role }}">
+        <option value="gemini" {% if config.provider == 'gemini' %}selected{% endif %} {% if llm_models_config.gemini and not llm_models_config.gemini.enabled %}disabled{% endif %}>Gemini</option>
+        <option value="huggingface" {% if config.provider == 'huggingface' %}selected{% endif %} {% if llm_models_config.huggingface and not llm_models_config.huggingface.enabled %}disabled{% endif %}>Hugging Face</option>
+        <option value="chatgpt" {% if config.provider == 'chatgpt' %}selected{% endif %} {% if llm_models_config.chatgpt and not llm_models_config.chatgpt.enabled %}disabled{% endif %}>ChatGPT</option>
+        <option value="other" {% if config.provider == 'other' %}selected{% endif %} {% if llm_models_config.other and not llm_models_config.other.enabled %}disabled{% endif %}>その他 (OpenAI互換)</option>
+    </select>
+</div>
+
+<div class="mb-3 llm-provider-fields" data-provider="huggingface" data-role="{{ role }}">
+    <label for="llm_huggingface_api_key_{{ role }}" class="form-label">Hugging Face API Key</label>
+    <input type="password" class="form-control" id="llm_huggingface_api_key_{{ role }}" name="llm_servers[{{ role }}][huggingface_api_key]" value="{{ config.huggingface_api_key|default:'' }}" placeholder="Your Hugging Face API key (optional)" autocomplete="off">
+</div>
+<div class="mb-3 llm-provider-fields" data-provider="huggingface" data-role="{{ role }}">
+    <label for="llm_huggingface_model_base_endpoint_{{ role }}" class="form-label">Hugging Face Base Endpoint</label>
+    <input type="text" class="form-control" id="llm_huggingface_model_base_endpoint_{{ role }}" name="llm_servers[{{ role }}][huggingface_model_base_endpoint]" value="{{ config.huggingface_model_base_endpoint|default:'' }}" placeholder="e.g., https://api-inference.huggingface.co/models/">
+</div>
+<div class="mb-3 llm-provider-fields" data-provider="huggingface" data-role="{{ role }}">
+    <label for="llm_huggingface_model_id_{{ role }}" class="form-label">Hugging Face Model ID</label>
+    <input type="text" class="form-control" id="llm_huggingface_model_id_{{ role }}" name="llm_servers[{{ role }}][huggingface_model_id]" value="{{ config.huggingface_model_id|default:'' }}" placeholder="e.g., mistralai/Mistral-7B-Instruct-v0.2">
+</div>
+
+<div class="mb-3">
+    <label for="llm_api_key_{{ role }}" class="form-label">
+        API キー 
+        <a href="{% url 'help_gemini_api' %}" target="_blank" class="text-info ms-1" title="Gemini APIキーの取得方法">
+            <i class="bi bi-asterisk" style="font-size: 0.75rem; vertical-align: super;"></i>
+        </a>
+    </label>
+    <div class="llm-preset-api-key-container mb-2" id="llm_preset_api_key_container_{{ role }}" style="display: none;">
+        <select class="form-select llm-preset-api-key-select" id="llm_preset_api_key_select_{{ role }}" data-role="{{ role }}">
+            <!-- Populated by JS -->
+        </select>
+    </div>
+    <input type="password" class="form-control llm-api-key-input" id="llm_api_key_{{ role }}" name="llm_servers[{{ role }}][api_key]" value="{{ config.api_key|default:'' }}" placeholder="sk-..." autocomplete="off">
+</div>
+
+<div class="mb-3">
+    <label for="llm_model_name_{{ role }}" class="form-label">モデル名</label>
+    <div class="llm-model-name-container" id="llm_model_name_container_{{ role }}">
+        <input type="text" class="form-control llm-model-name-input" id="llm_model_name_input_{{ role }}" name="llm_servers[{{ role }}][model_name]" value="{{ config.model_name|default:'' }}" placeholder="例: gemini-pro, gpt-4o-mini">
+        <select class="form-select llm-model-name-select" id="llm_model_name_select_{{ role }}" name="llm_servers[{{ role }}][model_name]" style="display: none;"></select>
+    </div>
+</div>
+
+<div class="mb-3 llm-base-url-group" id="llm_base_url_group_{{ role }}">
+    <label for="llm_base_url_{{ role }}" class="form-label">ベース URL (OpenAI互換API用)</label>
+    <input type="text" class="form-control" id="llm_base_url_{{ role }}" name="llm_servers[{{ role }}][base_url]" value="{{ config.base_url|default:'' }}" placeholder="例: http://localhost:11434/v1">
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label for="llm_temperature_{{ role }}" class="form-label">Temperature</label>
+            <input type="number" step="0.1" min="0" max="2" class="form-control" id="llm_temperature_{{ role }}" name="llm_servers[{{ role }}][temperature]" value="{{ config.temperature|default:0.7 }}">
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="mb-3">
+            <label for="llm_max_tokens_{{ role }}" class="form-label">Max Tokens</label>
+            <input type="number" step="1" min="1" class="form-control" id="llm_max_tokens_{{ role }}" name="llm_servers[{{ role }}][max_tokens]" value="{{ config.max_tokens|default:2048 }}">
+        </div>
+    </div>
+</div>

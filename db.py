@@ -16,14 +16,16 @@ def get_user_conn():
 
 def init_user_db():
     with get_user_conn() as conn:
-        conn.executescript("""
+        conn.executescript(
+            """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
             password_hash TEXT,
             created_at TEXT
         );
-        """)
+        """
+        )
         conn.commit()
 
 
@@ -40,7 +42,8 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
-        conn.executescript("""
+        conn.executescript(
+            """
         CREATE TABLE IF NOT EXISTS story (
             id TEXT PRIMARY KEY,
             title TEXT,
@@ -74,5 +77,6 @@ def init_db():
             values TEXT,
             constraints TEXT
         );
-        """)
+        """
+        )
         conn.commit()

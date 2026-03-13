@@ -31,10 +31,7 @@ def _split_keywords(text: str) -> List[str]:
     return [t.strip() for t in text.split(" ") if t.strip()]
 
 
-def score_intent_unit_alignment(
-    intent: Intent,
-    unit_text: str
-) -> float:
+def score_intent_unit_alignment(intent: Intent, unit_text: str) -> float:
     """
     Intent と Unit（文章）の整合性スコア
     0.0（不整合）〜 1.0（非常に整合）
@@ -60,11 +57,7 @@ def score_intent_unit_alignment(
             penalty += 0.2  # 1違反あたりのペナルティ
 
     # --- 重み付き合成 ---
-    raw_score = (
-        0.25 * genre_score +
-        0.35 * theme_score +
-        0.40 * values_score
-    )
+    raw_score = 0.25 * genre_score + 0.35 * theme_score + 0.40 * values_score
 
     final_score = max(0.0, raw_score - penalty)
 
@@ -72,8 +65,7 @@ def score_intent_unit_alignment(
 
 
 def compute_qubo_energy(
-    Q: Dict[Tuple[int, int], float],
-    binary_vector: List[int]
+    Q: Dict[Tuple[int, int], float], binary_vector: List[int]
 ) -> float:
     """
     QUBOエネルギー E = x^T Q x を計算

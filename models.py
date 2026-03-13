@@ -7,12 +7,14 @@ from typing import List, Optional
 # Core Domain Models
 # =========================
 
+
 @dataclass
 class Document:
     """
     1つの文章成果物を表す。
     小説・論文・ブログなどを doc_type で区別する。
     """
+
     id: str
     title: str
     synopsis: str
@@ -27,6 +29,7 @@ class Unit:
     論文: 節 / サブセクション
     ブログ: セクション
     """
+
     id: str
     document_id: str
     title: str
@@ -47,6 +50,7 @@ class Entity:
     論文: 概念・手法
     ブログ: 技術・ツール
     """
+
     id: str
     document_id: str
     name: str
@@ -59,6 +63,7 @@ class Intent:
     """
     作者の判断・価値観を表すドメインモデル
     """
+
     genre: str
     theme_or_claim: str
     core_values: str

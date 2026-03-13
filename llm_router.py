@@ -3,6 +3,7 @@ import google.generativeai as genai
 import openai
 from typing import Dict, Any, Optional
 
+
 def generate_draft(prompt: str, llm_config: Dict[str, Any]) -> str:
     """
     LLMを使用して小説の下書き（ドラフト）を直接生成します。
@@ -16,8 +17,10 @@ def generate_draft(prompt: str, llm_config: Dict[str, Any]) -> str:
     # provider の正規化
     if provider == "openai":
         provider = "chatgpt"
-    
-    logging.info(f"[LLM Router] Generating RAW draft with provider: {provider}, model: {model_name}")
+
+    logging.info(
+        f"[LLM Router] Generating RAW draft with provider: {provider}, model: {model_name}"
+    )
 
     try:
         if provider == "gemini":
@@ -35,8 +38,7 @@ def generate_draft(prompt: str, llm_config: Dict[str, Any]) -> str:
             # タイムアウトを設定 (600秒 = 10分)
             client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=600.0)
             response = client.chat.completions.create(
-                model=model_name,
-                messages=[{"role": "user", "content": prompt}]
+                model=model_name, messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
 

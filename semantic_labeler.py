@@ -18,7 +18,11 @@ class SemanticLabeler:
 
     def __init__(self, config_path="prompt_templates/semantic_label_schema.json"):
         try:
-            with open("prompt_templates/classification_batch_evaluation.md", "r", encoding="utf-8") as f:
+            with open(
+                "prompt_templates/classification_batch_evaluation.md",
+                "r",
+                encoding="utf-8",
+            ) as f:
                 self.batch_evaluation_prompt_template = f.read()
         except FileNotFoundError:
             logging.error("バッチ評価プロンプトファイルが見つかりません。")
@@ -39,7 +43,8 @@ class SemanticLabeler:
         self.classification_specs = {}
 
         for classification_name, labels_config in self.config.items():
-            if classification_name == "scale": continue
+            if classification_name == "scale":
+                continue
 
             required_keys = set()
             evaluation_items_definitions = []
@@ -58,10 +63,12 @@ class SemanticLabeler:
             self.classification_specs[classification_name] = {
                 "required_keys": required_keys,
                 "label_mappings": label_mappings,
-                "evaluation_items_definitions": "\n".join(evaluation_items_definitions)
+                "evaluation_items_definitions": "\n".join(evaluation_items_definitions),
             }
 
-    def _validate_labels(self, logger: logging.Logger, classification_name: str, labels: Dict[str, Any]) -> bool:
+    def _validate_labels(
+        self, logger: logging.Logger, classification_name: str, labels: Dict[str, Any]
+    ) -> bool:
         """
         LLMからの応答(英語キー)を検証し、必要に応じて補正する。
         """
@@ -80,7 +87,7 @@ class SemanticLabeler:
         # 2. 値の検証と外れ値の補正
         for en_key in list(labels.keys()):
             if en_key not in required_keys:
-                continue # 定義外のキーは無視
+                continue  # 定義外のキーは無視
 
             try:
                 val_int = int(labels[en_key])
@@ -93,7 +100,9 @@ class SemanticLabeler:
                 else:
                     labels[en_key] = val_int
             except (ValueError, TypeError):
-                logger.warning(f"型エラー補正: '{en_key}' の値 '{labels[en_key]}' が数値ではありません。0 を設定します。")
+                logger.warning(
+                    f"型エラー補正: '{en_key}' の値 '{labels[en_key]}' が数値ではありません。0 を設定します。"
+                )
                 labels[en_key] = 0
 
         return True
@@ -127,14 +136,20 @@ class SemanticLabeler:
             classification_name=classification_name,
             evaluation_items_definitions=evaluation_items_definitions,
             candidates_json=json.dumps(candidates, indent=2, ensure_ascii=False),
-            output_json_example=json.dumps(output_json_example_dict, indent=2, ensure_ascii=False),
+            output_json_example=json.dumps(
+                output_json_example_dict, indent=2, ensure_ascii=False
+            ),
         )
 
         user_data_dir = get_user_data_path(user_id)
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        prompt_file = os.path.join(user_data_dir, f"generated_evaluation_prompt_{classification_name.replace(' ', '_')}_{timestamp}.md")
+        prompt_file = os.path.join(
+            user_data_dir,
+            f"generated_evaluation_prompt_{classification_name.replace(' ', '_')}_{timestamp}.md",
+        )
         try:
-            with open(prompt_file, "w", encoding="utf-8") as f: f.write(full_prompt)
+            with open(prompt_file, "w", encoding="utf-8") as f:
+                f.write(full_prompt)
             logger.info(f"Generated evaluation prompt written to: {prompt_file}")
         except Exception as e:
             logger.error(f"Error writing evaluation prompt: {e}")
@@ -151,8 +166,10 @@ class SemanticLabeler:
                     llm_provider=llm_config["provider"],
                     base_url=llm_config["base_url"],
                 )
-                
-                logger.info(f"[LLM RESPONSE] (Attempt {attempt+1})\n{json.dumps(parsed_res, indent=2, ensure_ascii=False)}")
+
+                logger.info(
+                    f"[LLM RESPONSE] (Attempt {attempt+1})\n{json.dumps(parsed_res, indent=2, ensure_ascii=False)}"
+                )
 
                 if not isinstance(parsed_res, dict):
                     logger.warning("検証エラー: LLM応答が辞書形式ではありません。")
@@ -166,24 +183,31 @@ class SemanticLabeler:
                         continue
                     if not isinstance(evals, list):
                         logger.warning(f"検証エラー: 要素 '{el_name}' の評価がリスト形式ではありません。")
-                        all_valid = False; break
+                        all_valid = False
+                        break
                     for i, labels_obj in enumerate(evals):
-                        if not self._validate_labels(logger, classification_name, labels_obj):
+                        if not self._validate_labels(
+                            logger, classification_name, labels_obj
+                        ):
                             logger.warning(f"検証エラー: 要素 '{el_name}' 案 {i+1} の検証に失敗しました。")
-                            all_valid = False; break
-                    if not all_valid: break
+                            all_valid = False
+                            break
+                    if not all_valid:
+                        break
                     validated[el_name] = evals
 
                 if all_valid and validated:
                     logger.info(f"✅ 分類 '{classification_name}' のバッチラベル取得成功")
                     return validated
                 else:
-                    logger.warning(f"⚠️ 分類 '{classification_name}' の検証失敗 (試行 {attempt + 1}/{max_retries})")
+                    logger.warning(
+                        f"⚠️ 分類 '{classification_name}' の検証失敗 (試行 {attempt + 1}/{max_retries})"
+                    )
 
             except Exception as e:
                 logger.error(f"❌ エラー (試行 {attempt + 1}/{max_retries}): {e}")
             time.sleep(1)
-        
+
         logger.error(f"❌ {max_retries}回のリトライに失敗しました。この分類の処理をスキップします。")
         return None
 
@@ -195,7 +219,8 @@ def label_suggestions(
     log_file_path: Optional[str] = None,
 ):
     logger = logging.getLogger(__name__)
-    if logger.hasHandlers(): logger.handlers.clear()
+    if logger.hasHandlers():
+        logger.handlers.clear()
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -208,7 +233,9 @@ def label_suggestions(
 
     logger.info(f"\n==================================================")
     logger.info(f" 評価処理開始: {datetime.now().isoformat()}")
-    logger.info(f" LLM設定: {llm_config.get('provider')} / {llm_config.get('model_name')}")
+    logger.info(
+        f" LLM設定: {llm_config.get('provider')} / {llm_config.get('model_name')}"
+    )
     logger.info(f"==================================================")
 
     try:
@@ -244,7 +271,9 @@ def label_suggestions(
 
     for batch in all_batches:
         cat = batch["name"]
-        logger.info(f"\n--- 処理開始: 分類 '{cat}' の候補群 (要素数: {len(batch['candidates'])}) ---")
+        logger.info(
+            f"\n--- 処理開始: 分類 '{cat}' の候補群 (要素数: {len(batch['candidates'])}) ---"
+        )
         results = labeler._evaluate_classification_candidates_with_llm(
             logger, cat, batch["candidates"], llm_config, user_id
         )
@@ -257,13 +286,16 @@ def label_suggestions(
                 for group in suggestions:
                     if group.get("category") == cat:
                         original = group.get("elements", {}).get(el_name, [])
-                        if isinstance(original, str): original = [original]
+                        if isinstance(original, str):
+                            original = [original]
                         break
 
                 # Convert English keys to Japanese labels
                 transformed_evals_ja = []
                 for labels_en in evals_en:
-                    transformed_evals_ja.append({label_map.get(k, k): v for k, v in labels_en.items()})
+                    transformed_evals_ja.append(
+                        {label_map.get(k, k): v for k, v in labels_en.items()}
+                    )
 
                 labeled = {
                     "category": cat,
@@ -290,11 +322,17 @@ def label_suggestions(
                         "category": cat,
                         "element": el_name,
                         "labels": [dummy_ja],
-                        "status": "failed"
-                    }
+                        "status": "failed",
+                    },
                 }
                 current_count += 1
-                yield {"event": "progress", "progress_current": current_count, "progress_total": total_to_process, "category_label": cat, "current_element": el_name}
+                yield {
+                    "event": "progress",
+                    "progress_current": current_count,
+                    "progress_total": total_to_process,
+                    "category_label": cat,
+                    "current_element": el_name,
+                }
 
     logger.info(f"\n==================================================")
     logger.info(f" 全ての意味ラベル付け処理が完了しました。")

@@ -5,17 +5,18 @@
         <div class="card-body">
             <h2 class="card-title text-center mb-4">ログイン</h2>
             <form method="post">
+                {% csrf_token %}
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+                    <label for="username" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="username" name="username" placeholder="Email" required>
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
                     <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
                 </div>
-                {% if error %}
+                {% if form.errors %}
                     <div class="alert alert-danger" role="alert">
-                        {{ error }}
+                        ログインに失敗しました。メールアドレスとパスワードを確認してください。
                     </div>
                 {% endif %}
                 <div class="d-grid">
@@ -24,10 +25,10 @@
             </form>
             <hr>
             <div class="text-center">
-                <a href="/register">新規登録はこちら</a>
+                <a href="{% url 'register' %}">新規登録はこちら</a>
             </div>
             <div class="text-center mt-2">
-                <a href="/usage" target="_blank">使い方はこちら（ヘルプ）</a>
+                <a href="{% url 'usage' %}" target="_blank">使い方はこちら（ヘルプ）</a>
             </div>
         </div>
     </div>

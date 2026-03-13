@@ -9,12 +9,7 @@ def json_to_intent(intent_json: dict | None) -> Intent:
     """
 
     if not intent_json:
-        return Intent(
-            genre="",
-            theme_or_claim="",
-            core_values="",
-            constraints=[]
-        )
+        return Intent(genre="", theme_or_claim="", core_values="", constraints=[])
 
     # 互換対応（旧キー values）
     core_values = (
@@ -33,5 +28,5 @@ def json_to_intent(intent_json: dict | None) -> Intent:
         genre=intent_json.get("genre", ""),
         theme_or_claim=intent_json.get("theme_or_claim", ""),
         core_values=core_values or "",
-        constraints=[str(c) for c in constraints if c]
+        constraints=[str(c) for c in constraints if c],
     )

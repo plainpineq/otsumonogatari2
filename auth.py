@@ -5,6 +5,7 @@ from db import get_user_conn
 from security import verify_password
 from user_files import save_user_data, get_user_data_path
 
+
 def login():
     if request.method == "POST":
         email = request.form["email"]
@@ -18,7 +19,7 @@ def login():
         if user and verify_password(password, user["password_hash"]):
             session.permanent = True
             session["user_id"] = email
-            
+
             # 既にデータがあれば削除しない。なければ空のデータを作成する。
             user_data_path = get_user_data_path(email)
             working_file = os.path.join(user_data_path, "working.json")

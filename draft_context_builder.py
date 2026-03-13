@@ -1,12 +1,15 @@
 from typing import Dict, Any, Optional
 
-def build_draft_prompt(structure_snapshot: Dict[str, Any], additional_info: Optional[str] = None) -> str:
+
+def build_draft_prompt(
+    structure_snapshot: Dict[str, Any], additional_info: Optional[str] = None
+) -> str:
     """
     小説のシーンや章の下書きを生成するためのプロンプトを構築します。
     structure_snapshot には、シーン構成、キャラクター、伏線、場所、時間、天候、
     視点、文体、文字数、補足指示などの情報が含まれることを想定しています。
     """
-    
+
     scene_structure = structure_snapshot.get("scene_structure", "指定なし")
     characters = structure_snapshot.get("characters", [])
     foreshadowing = structure_snapshot.get("foreshadowing", [])
