@@ -1,3 +1,4 @@
+import urllib.parse
 import json
 import os
 import logging
@@ -440,8 +441,10 @@ def download_document(request, doc_id):
         "composition": doc.get('data', {})
     }
     
-    response = HttpResponse(json.dumps(data, ensure_ascii=False, indent=2), content_type='application/json')
-    response['Content-Disposition'] = f'attachment; filename="{doc.get("title", "document")}.json"'
+    response = HttpResponse(json.dumps(data, ensure_ascii=False, indent=2), content_type='application/octet-stream')
+    from django.utils.encoding import escape_uri_path
+    filename = f"{doc.get('title', 'document')}.json"
+    response['Content-Disposition'] = f"attachment; filename*=UTF-8''{escape_uri_path(filename)}"
     return response
 
 @login_required
