@@ -920,6 +920,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // --- タブ切り替え時や遷移時の自動保存 ---
+    // タブ切り替え時に保存
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabEl => {
+        tabEl.addEventListener('hide.bs.tab', () => {
+            autoSaveDocument();
+        });
+    });
+
+    // 全てのダッシュボードへの遷移時などに保存
+    document.querySelectorAll('a[href="/dashboard"]').forEach(link => {
+        link.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const originalContent = link.innerHTML;
+            if (link.innerText.trim() !== "") {
+                link.textContent = '保存中...';
+            }
+            await autoSaveDocument();
+            window.location.href = link.href;
+        });
+    });
+
     // --- Functions ---
     function showAlert(message, type = 'danger') {
         const alertDiv = document.createElement('div');

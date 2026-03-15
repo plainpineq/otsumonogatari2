@@ -287,7 +287,102 @@ document.addEventListener('DOMContentLoaded', function() {
         quantumPresetSelect.addEventListener('change', () => {
             if (quantumPresetSelect.value) {
                 quantumApiKeyInput.value = quantumPresetSelect.value;
+                autoSaveServersConfig(); // Trigger auto-save
             }
+        });
+    }
+
+    // --- 自動保存ロジック ---
+    async function autoSaveServersConfig() {
+        const settings = {
+            llm_servers: {},
+            quantum_server: {
+                api_key: document.getElementById('quantum_server_api_key').value
+            },
+            suggestion_count: parseInt(document.getElementById('suggestion_count').value)
+        };
+        const roles = ['generation', 'evaluation', 'drafting'];
+        roles.forEach(role => {
+            const provider = document.getElementById(`llm_provider_${role}`).value;
+            let model = document.getElementById(`llm_model_name_input_${role}`).value;
+            if (document.getElementById(`llm_model_name_select_${role}`).style.display !== 'none') {
+                model = document.getElementById(`llm_model_name_select_${role}`).value;
+            }
+
+            settings.llm_servers[role] = {
+                provider: provider,
+                model_name: model,
+                api_key: document.getElementById(`llm_api_key_${role}`).value,
+                base_url: document.getElementById(`llm_base_url_${role}`).value,
+                temperature: parseFloat(document.getElementById(`llm_temperature_${role}`).value),
+                max_tokens: parseInt(document.getElementById(`llm_max_tokens_${role}`).value),
+                huggingface_api_key: document.getElementById(`llm_huggingface_api_key_${role}`)?.value,
+                huggingface_model_base_endpoint: document.getElementById(`llm_huggingface_model_base_endpoint_${role}`)?.value,
+                huggingface_model_id: document.getElementById(`llm_huggingface_model_id_${role}`)?.value
+            };
+        });
+
+        try {
+            const response = await fetch('/api/save_servers_config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify(settings)
+            });
+            if (response.ok) {
+                console.log('Server settings auto-saved');
+            }
+        } catch (error) {
+            console.error('Failed to auto-save server settings:', error);
+        }
+    }
+
+    // 入力変更時に自動保存（デバウンス付き）
+    let autoSaveTimeout;
+    function triggerAutoSave() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(autoSaveServersConfig, 1000);
+    }
+
+    const watchSelectors = [
+        'select.llm-provider-select',
+        'input.llm-api-key-input',
+        'input.llm-model-name-input',
+        'select.llm-model-name-select',
+        '.llm-base-url-group input',
+        'input[id^="llm_temperature_"]',
+        'input[id^="llm_max_tokens_"]',
+        'input[id^="llm_huggingface_"]',
+        '#quantum_server_api_key',
+        '#suggestion_count'
+    ];
+
+    document.querySelectorAll(watchSelectors.join(',')).forEach(el => {
+        el.addEventListener('change', autoSaveServersConfig);
+        if (el.tagName === 'INPUT') {
+            el.addEventListener('input', triggerAutoSave);
+        }
+    });
+
+    // 提案個数の保存ボタンのデフォルト動作を抑制（自動保存されるため）
+    const suggestionForm = document.querySelector('form[action="/update_suggestion_count"]');
+    if (suggestionForm) {
+        suggestionForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            autoSaveServersConfig();
+            showJsFlash('設定を保存しました。', 'success');
+        });
+    }
+
+    // 全サーバー設定保存ボタンも同様
+    const serversForm = document.querySelector('form[action$="save_servers_config"]');
+    if (serversForm) {
+        serversForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            autoSaveServersConfig();
+            showJsFlash('全サーバー設定を保存しました。', 'success');
         });
     }
 

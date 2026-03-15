@@ -329,12 +329,50 @@ def document_create(request):
 def save_servers_config(request):
     """サーバー設定（LLM, 量子）をセッションに保存する"""
     try:
-        data = json.loads(request.body)
-        request.session['llm_servers'] = data.get('llm_servers', {})
-        request.session['quantum_server'] = data.get('quantum_server', {})
-        return JsonResponse({"success": True})
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+            if 'llm_servers' in data:
+                request.session['llm_servers'] = data.get('llm_servers', {})
+            if 'quantum_server' in data:
+                request.session['quantum_server'] = data.get('quantum_server', {})
+            if 'suggestion_count' in data:
+                request.session['suggestion_count'] = data.get('suggestion_count', 3)
+            return JsonResponse({"success": True})
+        else:
+            # フォーム送信の場合（レガシー互換）
+            # ここでは単純化のため、全設定保存ボタン用
+            # 実際にはJSからのJSON送信に統一するのが望ましい
+            return JsonResponse({"success": False, "error": "JSON request expected"}, status=400)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+@login_required
+@require_POST
+def update_suggestion_count(request):
+    """提案個数をセッションに保存する"""
+    try:
+        if request.content_type == 'application/json':
+            data = json.loads(request.body)
+            suggestion_count = int(data.get('suggestion_count', 3))
+        else:
+            suggestion_count = int(request.POST.get('suggestion_count', 3))
+            
+        if not (1 <= suggestion_count <= 5):
+            return JsonResponse({"success": False, "error": "提案個数は1から5の範囲で指定してください。"}, status=400)
+            
+        request.session['suggestion_count'] = suggestion_count
+        
+        if request.content_type == 'application/json':
+            return JsonResponse({"success": True})
+        else:
+            messages.success(request, "提案個数を保存しました。")
+            return redirect('dashboard')
+    except Exception as e:
+        if request.content_type == 'application/json':
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+        else:
+            messages.error(request, f"エラーが発生しました: {e}")
+            return redirect('dashboard')
 
 @login_required
 @require_POST
@@ -457,6 +495,10 @@ def api_save_document(request, doc_id):
         
         if 'intent' in data:
             doc['data']['intent'] = data['intent']
+        if 'genre_config' in data:
+            doc['data']['genre_config'] = data['genre_config']
+        if 'composition_elements' in data:
+            doc['data']['composition_elements'] = data['composition_elements']
         if 'manuscript_full_text' in data:
             doc['data']['manuscript_full_text'] = data['manuscript_full_text']
         if 'evaluation_config' in data:
