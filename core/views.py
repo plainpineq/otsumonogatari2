@@ -383,17 +383,18 @@ def generate_proposals(request, doc_id):
         intent_data = doc['data'].get('intent', {})
         fields = intent_data.get('fields', {})
         
-        intent_dict = {k: v.get('value', '') for k, v in fields.items()}
-        # サービス側が期待する特定のキーへのマッピング (互換性のため)
-        if 'theme' in intent_dict and 'theme_or_claim' not in intent_dict:
-            intent_dict['theme_or_claim'] = intent_dict['theme']
-        if 'genre' not in intent_dict:
-            intent_dict['genre'] = doc['data'].get('genre_config', {}).get('main', '')
+        intent_dict = {v.get('label', k): v.get('value', '') for k, v in fields.items()}
+        # ジャンル設定を取得
+        genre_config = doc['data'].get('genre_config', {})
+        # 構成要素を取得
+        composition_elements = doc['data'].get('composition_elements', {})
         
         llm_servers = request.session.get("llm_servers", {})
         suggestion_count = request.session.get("suggestion_count", 3)
+        doc_title = doc.get('title', '無題')
+        doc_type = doc.get('doc_type', '不明')
 
-        suggestions = srv_generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count)
+        suggestions = srv_generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count, user_id=request.user.email, genre_config=genre_config, composition_elements=composition_elements, doc_title=doc_title, doc_type=doc_type)
         
         doc['data']['llm_suggestions'] = suggestions
         save_meta_for_doc(request.user, user_data)
@@ -443,9 +444,12 @@ def generate_composition(request, doc_id):
             intent_dict['genre'] = doc['data'].get('genre_config', {}).get('main', '')
         
         selected_elements = doc['data'].get('selected_basic_elements', {})
+        genre_config = doc['data'].get('genre_config', {})
+        doc_type = doc.get('doc_type', '不明')
+        composition_elements = doc['data'].get('composition_elements', {})
         
         suggestions = srv_generate_composition(
-            doc_id, category_label, intent_dict, selected_elements, llm_servers, suggestion_count
+            doc_id, category_label, intent_dict, selected_elements, llm_servers, suggestion_count, user_id=request.user.email, genre_config=genre_config, doc_type=doc_type, composition_elements=composition_elements
         )
         
         if 'llm_suggestions' not in doc['data']:
@@ -991,6 +995,35 @@ def intent_update(request, doc_id):
     messages.success(request, "基本設定を保存しました。")
     return redirect('document_detail', doc_id=doc_id)
 
+@login_required
+@require_POST
+def load_server_settings(request):
+    """サーバー設定（JSONファイル）をロードしてセッションに保存する"""
+    if 'file' not in request.FILES:
+        messages.error(request, "ファイルがありません")
+        return redirect('dashboard')
+        
+    f = request.FILES['file']
+    try:
+        content = f.read().decode('utf-8')
+        data = json.loads(content)
+        
+        if "llm_servers" in data:
+            request.session['llm_servers'] = data["llm_servers"]
+        if "quantum_server" in data:
+            request.session['quantum_server'] = data["quantum_server"]
+        if "suggestion_count" in data:
+            request.session['suggestion_count'] = data["suggestion_count"]
+            
+        messages.success(request, "サーバー設定をロードしました。")
+    except json.JSONDecodeError:
+        messages.error(request, "無効なJSONファイルです")
+    except Exception as e:
+        messages.error(request, f"設定のロード中にエラーが発生しました: {e}")
+        
+    return redirect('dashboard')
+
+@login_required
 def help_gemini_api(request):
     return render(request, "help_gemini_api.html")
 

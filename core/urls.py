@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/save_servers_config', views.save_servers_config, name='api_save_servers_config'),
     path('update_suggestion_count', views.update_suggestion_count, name='update_suggestion_count'),
     path('api/update_suggestion_count', views.update_suggestion_count, name='api_update_suggestion_count'),
+    path('load_server_settings', views.load_server_settings, name='load_server_settings'),
     path('help/gemini-api', views.help_gemini_api, name='help_gemini_api'),
     path('help/amplify-api', views.help_amplify_api, name='help_amplify_api'),
     path('usage', views.usage, name='usage'),

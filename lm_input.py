@@ -11,6 +11,23 @@ from ui_labels import UI_LABELS
 # ... existing code ...
 
 
+_LABEL_TRANSLATIONS = {
+    "theme": "テーマ・主張",
+    "theme_or_claim": "テーマ・主張",
+    "audience": "想定読者",
+    "worldview": "世界観",
+    "genre": "ジャンル",
+    "setting": "舞台",
+    "duration": "想定尺",
+    "field": "分野",
+    "research_question": "研究課題",
+    "method": "研究手法",
+    "purpose": "目的",
+    "angle": "切り口",
+    "motif": "題材"
+}
+
+
 def _get_formatted_intent_text(document: dict) -> str:
     """
     Format intent fields and genre_config into a readable string for prompts.
@@ -19,19 +36,34 @@ def _get_formatted_intent_text(document: dict) -> str:
     genre_cfg = document.get("genre_config", {})
 
     formatted_intent = ""
+    displayed_labels = set()
 
     # 1. Genre Configuration
     main_genre = genre_cfg.get("main")
     sub_genres = genre_cfg.get("sub", [])
     if main_genre:
         formatted_intent += f"- 主ジャンル: {main_genre}\n"
+        displayed_labels.add("主ジャンル")
+        displayed_labels.add("ジャンル")
+        displayed_labels.add("genre")
     if sub_genres:
         formatted_intent += f"- 副ジャンル: {', '.join(sub_genres)}\n"
+        displayed_labels.add("副ジャンル")
 
     # 2. Other Intent Fields
     for key, field in intent_fields.items():
-        if field.get("label") and field.get("value"):
-            formatted_intent += f"- {field['label']}: {field['value']}\n"
+        label = field.get("label")
+        value = field.get("value")
+        if label and value:
+            # Translate internal keys to Japanese labels
+            translated_label = _LABEL_TRANSLATIONS.get(label, label)
+            
+            # Skip if already displayed or if it's a redundant genre field
+            if translated_label in displayed_labels:
+                continue
+                
+            formatted_intent += f"- {translated_label}: {value}\n"
+            displayed_labels.add(translated_label)
 
     if not formatted_intent:
         formatted_intent = "（基本設定・作者の意図は特に指定されていません）"
@@ -125,15 +157,15 @@ def build_composition_ideas_prompt(
     )
 
     # Output the generated prompt to a file for debugging/verification
-    user_data_dir = get_user_data_path(user_id)
-    os.makedirs(user_data_dir, exist_ok=True)  # Ensure the directory exists
-    output_file_path = os.path.join(user_data_dir, f"generated_prompt{suffix}.md")
-    try:
-        with open(output_file_path, "w", encoding="utf-8") as f:
-            f.write(prompt)
-        print(f"Generated prompt written to: {output_file_path}")
-    except Exception as e:
-        print(f"Error writing prompt to file: {e}")
+    # user_data_dir = get_user_data_path(user_id)
+    # os.makedirs(user_data_dir, exist_ok=True)  # Ensure the directory exists
+    # output_file_path = os.path.join(user_data_dir, f"generated_prompt{suffix}.md")
+    # try:
+    #     with open(output_file_path, "w", encoding="utf-8") as f:
+    #         f.write(prompt)
+    #     print(f"Generated prompt written to: {output_file_path}")
+    # except Exception as e:
+    #     print(f"Error writing prompt to file: {e}")
 
     return prompt
 
@@ -251,11 +283,12 @@ def build_title_plot_proposals_prompt(
         template_content = f.read()
 
     intent_fields = document.get("intent", {}).get("fields", {})
-    intent_dict = {
-        field.get("label"): field.get("value")
-        for key, field in intent_fields.items()
-        if field.get("label") and field.get("value")
-    }
+    intent_dict = {}
+    for key, field in intent_fields.items():
+        label = field.get("label")
+        value = field.get("value")
+        if label and value:
+            intent_dict[label] = value
 
     # Add genre config to the dict
     genre_cfg = document.get("genre_config", {})

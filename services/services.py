@@ -27,10 +27,86 @@ DEFAULT_COMPOSITION_META = _load_composition_meta()
 from lm_input import build_title_plot_proposals_prompt, build_category_composition_prompt
 from services.llm_client import call_llm
 
-def generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count=3):
+def _clear_llm_logs(user_id, prefix):
+    """指定されたprefixに関連するすべてのログファイルを削除する（working.jsonと同じフォルダ）"""
+    from user_files import get_user_data_path
+    user_path = get_user_data_path(user_id)
+    if not os.path.exists(user_path):
+        return
+        
+    # prefixで始まるファイルを探して削除する (working.jsonは除外)
+    for filename in os.listdir(user_path):
+        if filename.startswith(prefix) and filename != "working.json":
+            filepath = os.path.join(user_path, filename)
+            try:
+                if os.path.isfile(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                import logging
+                logging.error(f"Failed to remove log file {filepath}: {e}")
+
+def _save_llm_prompt_log(user_id, prefix, prompt):
+    """LLMのプロンプトを保存する。同名ファイルがある場合は連番を付与する。"""
+    from user_files import get_user_data_path
+    user_path = get_user_data_path(user_id)
+    os.makedirs(user_path, exist_ok=True)
+    
+    filename = f"{prefix}_prompt.md"
+    filepath = os.path.join(user_path, filename)
+    
+    # 連番付与のロジック
+    if os.path.exists(filepath):
+        count = 2
+        while True:
+            filename = f"{prefix}_prompt{count}.md"
+            filepath = os.path.join(user_path, filename)
+            if not os.path.exists(filepath):
+                break
+            count += 1
+            
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(prompt)
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to save LLM prompt log: {e}")
+
+def _save_llm_response_log(user_id, prefix, raw_text, parsed_json):
+    """LLMの生応答とパース結果を保存する。同名ファイルがある場合は連番を付与する。"""
+    from user_files import get_user_data_path
+    user_path = get_user_data_path(user_id)
+    os.makedirs(user_path, exist_ok=True)
+    
+    base_filename_raw = f"{prefix}_response_raw"
+    base_filename_json = f"{prefix}_response_parsed"
+    
+    filepath_raw = os.path.join(user_path, f"{base_filename_raw}.txt")
+    
+    suffix = ""
+    if os.path.exists(filepath_raw):
+        count = 2
+        while True:
+            suffix = str(count)
+            if not os.path.exists(os.path.join(user_path, f"{base_filename_raw}{suffix}.txt")):
+                break
+            count += 1
+    
+    try:
+        with open(os.path.join(user_path, f"{base_filename_raw}{suffix}.txt"), "w", encoding="utf-8") as f:
+            f.write(raw_text)
+        with open(os.path.join(user_path, f"{base_filename_json}{suffix}.json"), "w", encoding="utf-8") as f:
+            json.dump(parsed_json, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to save LLM response log: {e}")
+
+def generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count=3, user_id="django_user", genre_config=None, composition_elements=None, doc_title="無題", doc_type="不明"):
     """
     Generate initial Title and Plot proposals using LLM.
     """
+    # 自動削除は行わない（履歴保持のため）
+    # _clear_llm_logs(user_id, "step1_proposals")
+
     generation_config = llm_servers.get("generation", {})
     llm_provider = generation_config.get("provider")
     llm_api_key = generation_config.get("api_key")
@@ -44,17 +120,23 @@ def generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count=3):
     # The lm_input functions expect a dict-like object
     mock_doc = {
         "id": doc_id,
-        "title": "無題",
-        "intent": {"fields": {}}
+        "title": doc_title,
+        "doc_type": doc_type,
+        "intent": {"fields": {}},
+        "genre_config": genre_config or {},
+        "composition_elements": composition_elements or {"categories": []}
     }
     # Convert intent_dict to the format expected by build_title_plot_proposals_prompt
     for k, v in intent_dict.items():
         mock_doc["intent"]["fields"][k] = {"label": k, "value": v}
 
     prompt = build_title_plot_proposals_prompt(
-        mock_doc, DEFAULT_COMPOSITION_META, "django_user", 
+        mock_doc, DEFAULT_COMPOSITION_META, user_id, 
         suffix="_proposals", suggestion_count=suggestion_count
     )
+
+    # LLMを呼び出す前にプロンプトを保存
+    _save_llm_prompt_log(user_id, "step1_proposals", prompt)
 
     raw_text, suggestions_dict = call_llm(
         api_key=llm_api_key,
@@ -67,12 +149,20 @@ def generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count=3):
         huggingface_model_id=llm_huggingface_model_id
     )
 
+    # 応答を保存
+    _save_llm_response_log(user_id, "step1_proposals", raw_text, suggestions_dict)
+
     return suggestions_dict.get("suggestions", [])
 
-def generate_composition(doc_id, category_label, intent_dict, selected_elements, llm_servers, suggestion_count=3):
+def generate_composition(doc_id, category_label, intent_dict, selected_elements, llm_servers, suggestion_count=3, user_id="django_user", genre_config=None, doc_type="不明", composition_elements=None):
     """
     Generate full composition elements for a specific category using LLM.
     """
+    # 自動削除は行わない（履歴保持のため）
+    # prefix = f"step3_{category_label}"
+    # _clear_llm_logs(user_id, prefix)
+    prefix = f"step3_{category_label}"
+
     generation_config = llm_servers.get("generation", {})
     llm_provider = generation_config.get("provider")
     llm_api_key = generation_config.get("api_key")
@@ -85,18 +175,24 @@ def generate_composition(doc_id, category_label, intent_dict, selected_elements,
     mock_doc = {
         "id": doc_id,
         "title": selected_elements.get("title", "無題"),
+        "doc_type": doc_type,
         "synopsis": selected_elements.get("plot", ""),
         "selected_basic_elements": selected_elements,
-        "intent": {"fields": {}}
+        "intent": {"fields": {}},
+        "genre_config": genre_config or {},
+        "composition_elements": composition_elements or {"categories": []}
     }
     for k, v in intent_dict.items():
         mock_doc["intent"]["fields"][k] = {"label": k, "value": v}
 
     prompt = build_category_composition_prompt(
-        mock_doc, DEFAULT_COMPOSITION_META, "django_user",
+        mock_doc, DEFAULT_COMPOSITION_META, user_id,
         category_label=category_label, suffix=f"_{category_label}",
         suggestion_count=suggestion_count
     )
+
+    # LLMを呼び出す前にプロンプトを保存
+    _save_llm_prompt_log(user_id, prefix, prompt)
 
     raw_text, suggestions_dict = call_llm(
         api_key=llm_api_key,
@@ -108,6 +204,9 @@ def generate_composition(doc_id, category_label, intent_dict, selected_elements,
         huggingface_model_base_endpoint=llm_huggingface_model_base_endpoint,
         huggingface_model_id=llm_huggingface_model_id
     )
+
+    # 応答を保存
+    _save_llm_response_log(user_id, prefix, raw_text, suggestions_dict)
 
     return [suggestions_dict] if isinstance(suggestions_dict, dict) else []
 
