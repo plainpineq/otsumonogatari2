@@ -248,7 +248,8 @@ def _build_dynamic_json_example(
                 if element_label:
                     # Use generic suggestion placeholders
                     elements_dict[element_label] = [
-                        f"提案{i+1}" for i in range(suggestion_count)
+                        f"【ここに{element_label}の提案{i+1}を詳細に記述してください。条件に文字数指定がある場合は、その文字数を満たすように長文で出力してください。】"
+                        for i in range(suggestion_count)
                     ]
 
         # Only add category if it has elements
@@ -349,8 +350,10 @@ def build_title_plot_proposals_prompt(
         for element in base_category_data["elements"]:
             if element.get("label"):
                 elements_text += f"  - 要素名: {element['label']}\n"
+                # Use verbose placeholder to encourage length
                 elements_dict[element["label"]] = [
-                    f"提案{i+1}" for i in range(suggestion_count)
+                    f"【ここに{element['label']}の提案{i+1}を詳細に記述してください。条件に文字数指定がある場合は、その文字数を満たすように長文で出力してください。】"
+                    for i in range(suggestion_count)
                 ]
 
         dynamic_json_example_for_base = {
@@ -374,8 +377,11 @@ def build_title_plot_proposals_prompt(
         dynamic_json_example=json.dumps(
             dynamic_json_example_for_base, indent=2, ensure_ascii=False
         ),
-        additional_instruction_text=formatted_additional_instruction,
     )
+
+    # Re-emphasize instructions at the very end to override LLM behavior
+    if formatted_additional_instruction:
+        prompt += f"\n\n**重要：以下の指示を必ず守ってください：**\n{formatted_additional_instruction}"
 
     return prompt
 

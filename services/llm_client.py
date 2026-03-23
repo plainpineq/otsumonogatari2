@@ -19,7 +19,12 @@ def _call_gemini_llm(api_key: str, model_name: str, prompt: str) -> tuple[str, d
         raise ValueError("Gemini Model Name is not configured.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name)
+    # Set generation config for longer and more diverse output
+    generation_config = genai.types.GenerationConfig(
+        max_output_tokens=8192,
+        temperature=0.7,
+    )
+    model = genai.GenerativeModel(model_name, generation_config=generation_config)
 
     try:
         response = model.generate_content(prompt)
@@ -124,34 +129,6 @@ def _call_huggingface_llm(
         logging.error(f"Error calling Hugging Face LLM: {e}")
         raise RuntimeError(f"Failed to get response from Hugging Face LLM: {e}")
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name)
-
-    try:
-        response = model.generate_content(prompt)
-        raw_response_text = response.text  # Keep the original raw text
-
-        # Find the JSON block using a regular expression
-        json_match = re.search(
-            r"```(json)?\s*({.*})\s*```", raw_response_text, re.DOTALL
-        )
-
-        if json_match:
-            # Extract the JSON string from the regex match
-            json_str = json_match.group(2)
-        else:
-            # If no markdown fence is found, assume the whole response is the JSON string
-            json_str = raw_response_text.strip()
-
-        # Parse the extracted JSON string
-        parsed_response = json.loads(json_str)
-
-        # Return the ORIGINAL raw text and the parsed dictionary
-        return raw_response_text, parsed_response
-    except Exception as e:
-        logging.error(f"Error calling Gemini LLM: {e}")
-        raise RuntimeError(f"Failed to get response from Gemini LLM: {e}")
-
 
 def _call_openai_llm(
     api_key: str, model_name: str, prompt: str, base_url: Optional[str] = None
@@ -170,30 +147,41 @@ def _call_openai_llm(
         raise ValueError("OpenAI Model Name is not configured.")
 
     client = openai.OpenAI(
-        api_key=api_key, base_url=base_url
-    )  # Use base_url if provided
+        api_key=api_key, base_url=base_url, timeout=1800.0
+    )  # Use base_url if provided with 30-minute timeout
 
     try:
         response = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
+            max_tokens=4096,
+            temperature=0.7,
         )
         raw_response_text = response.choices[0].message.content
 
-        # Find the JSON block using a regular expression
+        if not raw_response_text or not raw_response_text.strip():
+            logging.error(f"[LLM] Empty response from OpenAI LLM. Model: {model_name}")
+            raise RuntimeError("LLMサーバーから空の応答が返されました。生成内容が長すぎるか、サーバー側で中断された可能性があります。")
+
+        # Find the JSON block using a regular expression (more robust)
         json_match = re.search(
-            r"```(json)?\s*({.*})\s*```", raw_response_text, re.DOTALL
+            r"(?:```(?:json)?\s*)?({.*})(?:\s*```)?", raw_response_text, re.DOTALL
         )
 
         if json_match:
             # Extract the JSON string from the regex match
-            json_str = json_match.group(2)
+            json_str = json_match.group(1).strip()
         else:
             # If no markdown fence is found, assume the whole response is the JSON string
             json_str = raw_response_text.strip()
 
-        parsed_response = json.loads(json_str)
+        try:
+            parsed_response = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logging.error(f"[LLM] JSON Parse Error: {e}. Raw text: {raw_response_text}")
+            raise RuntimeError(f"LLMからの応答をJSONとして解析できませんでした。内容が不完全な可能性があります。詳細: {e}")
+
         return raw_response_text, parsed_response
     except openai.APIConnectionError as e:
         logging.error(f"Error connecting to OpenAI-compatible LLM at {base_url}: {e}")

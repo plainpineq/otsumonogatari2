@@ -104,8 +104,8 @@ def generate_proposals(doc_id, intent_dict, llm_servers, suggestion_count=3, use
     """
     Generate initial Title and Plot proposals using LLM.
     """
-    # 自動削除は行わない（履歴保持のため）
-    # _clear_llm_logs(user_id, "step1_proposals")
+    # 生成開始時に、過去のすべてのログ（Step1, Step3, プロンプト等）を一括クリアする
+    _clear_llm_logs(user_id, "")
 
     generation_config = llm_servers.get("generation", {})
     llm_provider = generation_config.get("provider")
